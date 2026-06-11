@@ -1,0 +1,25 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Radii" subtitle="Hardware-flat: 4px combos, 6px dialogs, pill toggles" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 24px; }
+  .row { display: flex; gap: 28px; align-items: center; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .box { width: 72px; height: 56px; background: var(--surface-card); border: var(--border-hairline); }
+  .pill { width: 72px; height: 32px; background: var(--surface-card); border: var(--border-hairline); }
+  .tok { font-family: var(--font-mono); font-size: var(--fs-9); color: var(--text-muted); }
+  .px { font-size: var(--fs-12); font-weight: var(--fw-semibold); color: var(--text-body); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="item"><div class="box" style="border-radius:var(--radius-xs)"></div><div class="px">3px</div><div class="tok">radius-xs</div></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-sm)"></div><div class="px">4px</div><div class="tok">radius-sm · combo</div></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-md)"></div><div class="px">6px</div><div class="tok">radius-md · dialog</div></div>
+    <div class="item"><div class="pill" style="border-radius:var(--radius-pill)"></div><div class="px">999px</div><div class="tok">radius-pill · toggle</div></div>
+  </div>
+</body>
+</html>

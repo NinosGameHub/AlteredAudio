@@ -1,0 +1,23 @@
+<!-- @dsCard group="Brand" viewport="700x150" name="Wordmark" subtitle="Typographic mark — no logo file; this IS the brand mark" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 0; }
+  .stage { display: flex; gap: 0; height: 150px; }
+  .panel { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .light { background: var(--surface-page); }
+  .dark { background: var(--crt-bg); }
+  .wm { font-size: var(--fs-18); font-weight: var(--fw-bold); letter-spacing: var(--tracking-wordmark); text-transform: uppercase; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; background: var(--accent-primary); margin-right: 11px; vertical-align: middle; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="panel light"><span class="wm" style="color:var(--text-body)"><span class="dot"></span>Altered Audio</span></div>
+    <div class="panel dark"><span class="wm" style="color:var(--crt-amber)"><span class="dot" style="background:var(--crt-amber)"></span>Altered Audio</span></div>
+  </div>
+</body>
+</html>

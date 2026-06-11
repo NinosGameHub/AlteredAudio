@@ -1,0 +1,26 @@
+<!-- @dsCard group="Type" viewport="700x160" name="Body & mono readout" subtitle="13px body; monospace for knob values, CRT labels, tile numbers" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .body { font-size: var(--fs-13); color: var(--text-body); max-width: 560px; line-height: var(--lh-normal); }
+  .vals { display: flex; gap: 20px; align-items: baseline; }
+  .val { font-family: var(--font-mono); font-size: var(--fs-12); color: var(--text-muted); }
+  .num { font-family: var(--font-mono); font-size: var(--fs-8); color: var(--text-muted); }
+  .note { font-family: var(--font-mono); font-size: var(--fs-9); color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div>
+    <div class="body">Build signal chains by reordering DSP modules in the rack. The whole chain — order, routing and every parameter — saves as a preset.</div>
+    <div class="note" style="margin-top:6px">13px · regular — body & combo text</div>
+  </div>
+  <div>
+    <div class="vals"><span class="val">-12.0 dB</span><span class="val">440 Hz</span><span class="val">0.71</span><span class="val">250 ms</span><span class="num">01</span><span class="num">20k</span></div>
+    <div class="note" style="margin-top:6px">mono — knob value readouts, CRT freq labels, tile chain-numbers</div>
+  </div>
+</body>
+</html>

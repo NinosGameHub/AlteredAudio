@@ -1,0 +1,44 @@
+/* ============================================================
+   Altered Audio — Effects tokens
+   Flat hardware aesthetic: warm 1px hairlines, no card shadows.
+   Knob geometry mirrors AaLookAndFeel::drawRotarySlider (flat
+   cream disc, near-black indicator line, range dots at 7 & 5
+   o'clock). CRT carries scan-line + grid overlays.
+   ============================================================ */
+
+:root {
+  /* ---- Borders ---- */
+  --border-hairline: 1px solid var(--border-default);
+  --border-strong:   1.5px solid var(--border-default);
+  --border-accent:   1px solid var(--accent-primary);
+
+  /* ---- Elevation (floating surfaces only) ---- */
+  --shadow-none: none;
+  --shadow-card: 0 1px 2px rgba(28, 24, 21, 0.06);
+  --shadow-menu: 0 8px 24px rgba(28, 24, 21, 0.16);
+  --shadow-dialog: 0 24px 64px rgba(28, 24, 21, 0.28);
+
+  /* ---- Focus ---- */
+  --focus-ring: 0 0 0 3px rgba(196, 98, 29, 0.32);
+
+  /* ---- Motion ---- */
+  --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);  /* @kind other */
+  --ease-out:      cubic-bezier(0.0, 0.0, 0.2, 1);  /* @kind other */
+  --dur-fast:   120ms;  /* @kind other */
+  --dur-normal: 200ms;  /* @kind other */
+  --dur-slow:   320ms;  /* @kind other */
+
+  /* ---- Knob geometry (drawRotarySlider) ---- */
+  /* disc radius = 0.40 * min(w,h); indicator line 0.20r→0.86r, 2.5px;
+     range dots at startAngle/endAngle, offset r+5.5px, 3px dia. */
+  --knob-disc-ratio:   0.40;   /* @kind other */
+  --knob-line-width:   2.5px;  /* @kind other */
+  --knob-line-inner:   0.20;   /* @kind other */
+  --knob-line-outer:   0.86;   /* @kind other */
+  --knob-dot-size:     3px;    /* @kind other */
+  --knob-sweep-deg:    270;    /* @kind other */ /* 7 o'clock → 5 o'clock */
+
+  /* ---- CRT overlays ---- */
+  --crt-scanline: rgba(0, 0, 0, 0.07);          /* @kind other */
+  --crt-grid:     rgba(228, 162, 16, 0.10);     /* @kind other */
+}

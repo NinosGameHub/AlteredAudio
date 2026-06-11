@@ -1,0 +1,51 @@
+/* ============================================================
+   Altered Audio — base element defaults
+   A light reset plus body typography so any page that links
+   styles.css renders on-brand out of the box.
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-system);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-normal);
+  color: var(--text-body);
+  background: var(--surface-page);
+}
+
+/* Uppercase micro-label used throughout the plugin UI */
+.aa-label {
+  font-size: var(--fs-10-5);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Wordmark treatment */
+.aa-wordmark {
+  font-family: var(--font-system);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-wordmark);
+  text-transform: uppercase;
+  color: var(--text-body);
+}
+
+::selection {
+  background: var(--accent-tint);
+  color: var(--accent-press);
+}

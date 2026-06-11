@@ -1,0 +1,28 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Spacing scale" subtitle="4px base grid — gaps of 4 / 12 / 16 dominate the UI" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 24px; }
+  .row { display: flex; align-items: flex-end; gap: 18px; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .bar { background: var(--accent-primary); border-radius: 2px; width: 100%; }
+  .swatch { width: 48px; display: flex; align-items: flex-end; height: 56px; }
+  .tok { font-family: var(--font-mono); font-size: var(--fs-10); color: var(--text-muted); }
+  .px { font-size: var(--fs-12); font-weight: var(--fw-semibold); color: var(--text-body); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="item"><div class="swatch"><div class="bar" style="height:4px"></div></div><div class="px">4</div><div class="tok">space-1</div></div>
+    <div class="item"><div class="swatch"><div class="bar" style="height:8px"></div></div><div class="px">8</div><div class="tok">space-2</div></div>
+    <div class="item"><div class="swatch"><div class="bar" style="height:12px"></div></div><div class="px">12</div><div class="tok">space-3</div></div>
+    <div class="item"><div class="swatch"><div class="bar" style="height:16px"></div></div><div class="px">16</div><div class="tok">space-4</div></div>
+    <div class="item"><div class="swatch"><div class="bar" style="height:24px"></div></div><div class="px">24</div><div class="tok">space-6</div></div>
+    <div class="item"><div class="swatch"><div class="bar" style="height:32px"></div></div><div class="px">32</div><div class="tok">space-8</div></div>
+    <div class="item"><div class="swatch"><div class="bar" style="height:48px"></div></div><div class="px">48</div><div class="tok">space-12</div></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!-- @dsCard group="Spacing" viewport="700x230" name="Window layout" subtitle="1000×640 shell: 160px tile list · 40px header · 180px CRT · detail" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 18px; }
+  .shell { width: 100%; max-width: 600px; height: 188px; display: flex;
+           border: var(--border-hairline); border-radius: var(--radius-md); overflow: hidden; }
+  .list { width: 96px; flex: 0 0 auto; background: var(--surface-page);
+          border-right: var(--border-hairline); display: flex; align-items: center; justify-content: center; text-align: center; }
+  .right { flex: 1; display: flex; flex-direction: column; }
+  .hdr { height: 26px; background: var(--surface-card); border-bottom: var(--border-hairline);
+         display: flex; align-items: center; padding: 0 10px; }
+  .crt { height: 78px; background: var(--crt-bg); border-bottom: var(--border-hairline);
+         display: flex; align-items: center; justify-content: center; }
+  .detail { flex: 1; background: var(--surface-page); display: flex; align-items: center; justify-content: center; }
+  .lab { font-weight: var(--fw-semibold); color: var(--text-body); font-size: var(--fs-10); }
+  .dim { font-family: var(--font-mono); color: var(--text-muted); font-size: var(--fs-9); }
+  .amber { color: var(--crt-amber); font-family: var(--font-mono); font-size: var(--fs-9); }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="list"><div><div class="lab">Tile list</div><div class="dim">160px</div></div></div>
+    <div class="right">
+      <div class="hdr"><span class="lab">Header</span><span class="dim" style="margin-left:auto">40px</span></div>
+      <div class="crt"><span class="amber">CRT spectrum · 180px</span></div>
+      <div class="detail"><div style="text-align:center"><div class="lab">Module detail</div><div class="dim">44px header + knob rows</div></div></div>
+    </div>
+  </div>
+</body>
+</html>

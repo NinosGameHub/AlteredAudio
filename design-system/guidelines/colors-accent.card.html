@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x160" name="Category colors" subtitle="Five accents map module groups — orange dynamics, brown time, etc." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 20px; }
+  .row { display: flex; gap: 10px; }
+  .sw { flex: 1; border-radius: var(--radius-sm); border: var(--border-hairline); overflow: hidden; }
+  .chip { height: 60px; }
+  .meta { padding: 7px 9px; background: var(--surface-card); }
+  .name { font-size: var(--fs-12); font-weight: var(--fw-semibold); color: var(--text-body); }
+  .hex { font-family: var(--font-mono); font-size: var(--fs-9); color: var(--text-muted); margin-top: 2px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:var(--cat-dynamics)"></div><div class="meta"><div class="name">Dynamics</div><div class="hex">#C4621D</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--cat-time)"></div><div class="meta"><div class="name">Time</div><div class="hex">#7A5438</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--cat-modulation)"></div><div class="meta"><div class="name">Modulation</div><div class="hex">#AA8B10</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--cat-filtereq)"></div><div class="meta"><div class="name">Filter / EQ</div><div class="hex">#3A6694</div></div></div>
+    <div class="sw"><div class="chip" style="background:var(--cat-spatial)"></div><div class="meta"><div class="name">Spatial</div><div class="hex">#5E8480</div></div></div>
+  </div>
+</body>
+</html>

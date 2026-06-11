@@ -1,0 +1,370 @@
+<!-- @dsCard group="Plugin" viewport="1000x640" name="Plugin window" subtitle="Interactive modular-rack recreation — tile list, CRT, panels, presets" -->
+<!-- @startingPoint section="Plugin" subtitle="Full modular-rack plugin window" viewport="1000x640" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Altered Audio — Plugin</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  html, body { height: 100%; }
+  body { margin: 0; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+
+  #scaler { transform-origin: center center; }
+
+  .aa-plugin {
+    width: var(--w-plugin);
+    height: var(--h-plugin);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-page);
+    border: var(--border-hairline);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    position: relative;
+    box-shadow: var(--shadow-dialog);
+  }
+
+  .aa-iconbtn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; padding: 0;
+    background: transparent; border: none; border-radius: var(--radius-sm);
+    color: var(--text-muted); cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-standard);
+  }
+  .aa-iconbtn:hover { background: var(--surface-sunken); color: var(--text-body); }
+
+  .aa-button:hover { filter: brightness(0.97); }
+  .aa-module-tile:hover { background: var(--aa-surface-alt); }
+  .aa-addtile:hover { background: var(--aa-surface-alt); color: var(--accent-primary); }
+
+  .aa-plugin svg { stroke-width: 1.75; }
+  i[data-lucide] { color: inherit; }
+</style>
+</head>
+<body>
+  <div id="scaler">
+    <div id="root"></div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="../../_ds_bundle.js"></script>
+
+  <script type="text/babel">
+  const AA = window.AlteredAudioDesignSystem_3ace71;
+  const { Knob, Select, ToggleSwitch, Button, ModuleTile, Meter, CRTDisplay } = AA;
+
+  /* category color tokens (match ModuleTileList::moduleColor) */
+  const CAT = {
+    filtereq: "var(--cat-filtereq)", time: "var(--cat-time)",
+    dynamics: "var(--cat-dynamics)", modulation: "var(--cat-modulation)",
+    spatial: "var(--cat-spatial)", neutral: "var(--text-muted)",
+  };
+  const k = (label, display, v) => ({ label, display, v });
+
+  /* The 15 modules — short name (tile), title (panel), category, params. */
+  const MODULES = [
+    { id: "FILTER", title: "FILTER", cat: "filtereq",
+      combos: [{ label: "TYPE", value: "Peak", options: ["LowPass","HighPass","BandPass","Notch","AllPass","Peak","LowShelf","HighShelf"] }],
+      rows: [[k("FREQ","440 Hz",0.42), k("Q","0.71",0.30), k("GAIN","+3.0 dB",0.62)]] },
+    { id: "EQ", title: "EQ", cat: "filtereq", eq: true },
+    { id: "GAIN", title: "GAIN", cat: "neutral", rows: [[k("GAIN (dB)","-2.0 dB",0.46)]] },
+    { id: "DELAY", title: "DELAY", cat: "time",
+      toggles: [{ label: "Ping-Pong", checked: true }],
+      rows: [
+        [k("TIME (ms)","250 ms",0.35), k("FEEDBACK","35%",0.35), k("SPREAD (ms)","12 ms",0.20), k("WET/DRY","30%",0.30)],
+        [k("TONE LP","8.0 kHz",0.78), k("TONE HP","120 Hz",0.18), k("DUCKING","20%",0.20), k("DIFFUSION","40%",0.40)],
+        [k("WOW","10%",0.10), k("MOD RATE","0.4 Hz",0.22), k("MOD DEPTH","15%",0.15)],
+      ] },
+    { id: "REVERB", title: "REVERB", cat: "time",
+      rows: [
+        [k("DECAY","2.4 s",0.55), k("DAMPING","45%",0.45), k("DIFFUSION","60%",0.60), k("PRE-DELAY","20 ms",0.18), k("WET/DRY","28%",0.28)],
+        [k("MOD RATE","0.3 Hz",0.20), k("ER LEVEL","50%",0.50), k("LOW CUT","120 Hz",0.22), k("SHIMMER","0%",0.0), k("PITCH SEMI","0",0.5)],
+      ] },
+    { id: "WAVE", title: "WAVESHAPER", cat: "dynamics",
+      combos: [{ label: "ALGORITHM", value: "TanhSat", options: ["SoftClip","HardClip","TanhSat","BitCrush","FoldBack"] }],
+      rows: [[k("DRIVE","6.0 dB",0.50), k("WET/DRY","100%",1.0), k("BIT DEPTH","16",0.66)]] },
+    { id: "COMP", title: "COMPRESSOR", cat: "dynamics",
+      rows: [
+        [k("THRESH","-18 dB",0.40), k("RATIO","4.0:1",0.45), k("ATTACK","12 ms",0.24), k("RELEASE","120 ms",0.40), k("KNEE","6 dB",0.30), k("MAKEUP","+3 dB",0.60), k("PEAK/RMS","50%",0.50)],
+        [k("AUTO REL","Off",0.0), k("SAT","15%",0.15), k("SC HP","40 Hz",0.10), k("SC LP","18 kHz",0.95), k("ST LINK","100%",1.0), k("MIX","100%",1.0), k("LOOKAHEAD","2 ms",0.20)],
+      ] },
+    { id: "CLIP", title: "CLIPPER", cat: "dynamics",
+      combos: [
+        { label: "MODE", value: "Soft", options: ["Hard","Soft","Sine","Tape"] },
+        { label: "OVERSAMPLE", value: "4x", options: ["2x","4x","8x"] },
+      ],
+      toggles: [{ label: "Auto Gain", checked: true }],
+      rows: [[k("CEILING","-0.3 dB",0.92), k("KNEE","2 dB",0.20), k("MIX","100%",1.0), k("BIAS","0",0.5), k("EMPH FREQ","3.0 kHz",0.55), k("EMPH dB","0 dB",0.5)]] },
+    { id: "TRANS", title: "TRANSIENT SHAPER", cat: "dynamics",
+      rows: [[k("ATTACK","+6",0.70), k("SUSTAIN","-3",0.40), k("SPEED","50%",0.50), k("ST LINK","100%",1.0), k("WET/DRY","100%",1.0)]] },
+    { id: "LIM", title: "LIMITER", cat: "dynamics",
+      rows: [[k("CEILING (dB)","-0.3 dB",0.92), k("RELEASE (ms)","50 ms",0.30)]] },
+    { id: "GATE", title: "GATE", cat: "dynamics",
+      rows: [[k("THRESHOLD","-40 dB",0.25), k("ATTACK","1 ms",0.05), k("RELEASE","80 ms",0.35), k("RANGE","-60 dB",0.20)]] },
+    { id: "CHORUS", title: "CHORUS", cat: "modulation",
+      rows: [[k("RATE (Hz)","0.8 Hz",0.30), k("DEPTH (ms)","4 ms",0.30), k("CENTRE (ms)","12 ms",0.40), k("VOICES","3",0.50), k("WET/DRY","40%",0.40)]] },
+    { id: "FLANGE", title: "FLANGER", cat: "modulation",
+      rows: [[k("RATE (Hz)","0.3 Hz",0.20), k("DEPTH (ms)","2 ms",0.30), k("CENTRE (ms)","3 ms",0.30), k("FEEDBACK","50%",0.50), k("WET/DRY","50%",0.50)]] },
+    { id: "PHASER", title: "PHASER", cat: "modulation",
+      combos: [{ label: "STAGES", value: "4", options: ["2","4","6","8"] }],
+      rows: [[k("RATE (Hz)","0.5 Hz",0.25), k("DEPTH","60%",0.60), k("BASE FREQ","500 Hz",0.45), k("FEEDBACK","40%",0.40), k("WET/DRY","50%",0.50)]] },
+    { id: "SPATIAL", title: "SPATIAL", cat: "spatial",
+      rows: [
+        [k("WIDTH","120%",0.60), k("PAN","C",0.50), k("WET/DRY","100%",1.0)],
+        [k("ROTATION","0°",0.50), k("MID GAIN","0 dB",0.5), k("SIDE GAIN","+2 dB",0.58), k("BASS MONO","120 Hz",0.22), k("HAAS (ms)","0 ms",0.0)],
+      ] },
+  ];
+  const MODULE_BY_ID = Object.fromEntries(MODULES.map((m) => [m.id, m]));
+  const ORDER = MODULES.map((m) => m.id);
+  const PRESETS = ["Init", "Vocal Chain", "Drum Bus Glue", "Lo-Fi Tape", "Wide Verb", "Master Glue", "Telephone"];
+
+  function Icon({ name, size = 16 }) {
+    return <i data-lucide={name} style={{ width: size, height: size, display: "inline-flex" }} />;
+  }
+
+  /* ---------- detail-panel pieces ---------- */
+  function KnobRow({ knobs, active, accent }) {
+    return (
+      <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+        {knobs.map((kn, i) => (
+          <div key={i} style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+            <Knob size={62} label={kn.label} value={kn.v} min={0} max={1} display={kn.display} disabled={!active} showArc accent={accent} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function EqPanel({ active, accent }) {
+    const [bands, setBands] = React.useState([true, true, true, false, false, false, false, false]);
+    const types = ["LowShelf","Peak","Peak","Peak","Peak","Peak","Peak","HighShelf"];
+    const vals = [["80 Hz","0.7","+2"],["240 Hz","1.0","-3"],["1.2k","0.8","+4"],["3.5k","1.2","-2"],["6k","1.0","0"],["8k","0.7","0"],["12k","0.5","0"],["16k","0.7","+1"]];
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "14px 12px" }}>
+        {bands.map((on, i) => (
+          <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ToggleSwitch checked={on && active} disabled={!active} onChange={(v) => { const n = [...bands]; n[i] = v; setBands(n); }} />
+              <span style={{ fontSize: "var(--fs-10)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--tracking-label)", color: "var(--text-muted)" }}>B{i + 1}</span>
+              <span style={{ fontSize: "var(--fs-9)", color: "var(--text-muted)" }}>{types[i]}</span>
+            </div>
+            <div style={{ display: "flex", gap: 2, opacity: on ? 1 : 0.45 }}>
+              <Knob size={44} label="F" value={0.4} display={vals[i][0]} disabled={!active || !on} showArc accent={accent} />
+              <Knob size={44} label="Q" value={0.3} display={vals[i][1]} disabled={!active || !on} showArc accent={accent} />
+              <Knob size={44} label="dB" value={0.5} display={vals[i][2]} disabled={!active || !on} showArc accent={accent} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function ModuleDetailPanel({ moduleId, active, onToggleActive }) {
+    const m = MODULE_BY_ID[moduleId] || MODULES[0];
+    const accent = CAT[m.cat] || "var(--accent-primary)";
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--surface-page)" }}>
+        <div style={{ height: "var(--h-panel-header)", flex: "0 0 auto", display: "flex", alignItems: "center", padding: "0 16px", background: "var(--surface-card)", borderBottom: "var(--border-hairline)" }}>
+          <span style={{ width: 8, height: 8, borderRadius: 999, background: accent, marginRight: 10 }} />
+          <span style={{ fontSize: "var(--fs-15)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--tracking-label)", color: "var(--text-body)" }}>{m.title}</span>
+          <div style={{ marginLeft: "auto" }}>
+            <ToggleSwitch checked={active} onChange={onToggleActive} label="Active" />
+          </div>
+        </div>
+        <div style={{ flex: 1, padding: "18px 16px", overflow: "auto" }}>
+          {m.combos ? (
+            <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
+              {m.combos.map((c, i) => (<div key={i} style={{ minWidth: 150 }}><Select label={c.label} value={c.value} options={c.options} /></div>))}
+            </div>
+          ) : null}
+          {m.eq ? <EqPanel active={active} accent={accent} /> : null}
+          {m.rows ? m.rows.map((row, i) => (<KnobRow key={i} knobs={row} active={active} accent={accent} />)) : null}
+          {m.toggles ? (
+            <div style={{ display: "flex", gap: 24, marginTop: 4 }}>
+              {m.toggles.map((t, i) => (<ToggleSwitch key={i} checked={t.checked && active} disabled={!active} label={t.label} />))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------- chrome ---------- */
+  function PluginHeader({ preset, onPrev, onNext, channels, onChannels, io, bypass, onBypass }) {
+    return (
+      <div style={{ height: "var(--h-app-header)", flex: "0 0 auto", display: "flex", alignItems: "center", background: "var(--surface-card)", borderBottom: "var(--border-hairline)" }}>
+        <div style={{ width: "var(--w-tile-list)", flex: "0 0 auto", height: "100%", display: "flex", alignItems: "center", paddingLeft: 12, borderRight: "var(--border-hairline)" }}>
+          <span style={{ width: 7, height: 7, borderRadius: 999, background: "var(--accent-primary)", marginRight: 9 }} />
+          <span style={{ fontSize: "var(--fs-13)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--tracking-wordmark)", textTransform: "uppercase", color: "var(--text-body)" }}>Altered Audio</span>
+        </div>
+        <div style={{ flex: 1, height: "100%", display: "flex", alignItems: "center", gap: 12, padding: "0 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <button onClick={onPrev} className="aa-iconbtn" title="Previous preset"><Icon name="chevron-left" size={15} /></button>
+            <div style={{ minWidth: 150, height: 24, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "0 12px", background: "var(--surface-page)", border: "var(--border-hairline)", borderRadius: "var(--radius-sm)" }}>
+              <Icon name="folder" size={13} />
+              <span style={{ fontSize: "var(--fs-12)", color: "var(--text-body)" }}>{preset}</span>
+            </div>
+            <button onClick={onNext} className="aa-iconbtn" title="Next preset"><Icon name="chevron-right" size={15} /></button>
+          </div>
+          <div style={{ display: "flex", border: "var(--border-hairline)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+            {["ST", "M/S"].map((c) => (
+              <button key={c} onClick={() => onChannels(c)} style={{ height: 24, padding: "0 10px", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: "var(--fs-9)", letterSpacing: "0.06em", background: channels === c ? "var(--accent-primary)" : "var(--surface-page)", color: channels === c ? "var(--text-on-accent)" : "var(--text-muted)" }}>{c}</button>
+            ))}
+          </div>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-9)", color: "var(--text-muted)" }}>IN</span>
+            <div style={{ display: "flex", gap: 3 }}>
+              <Meter value={io[0]} orientation="horizontal" length={42} thickness={4} segments={12} />
+              <Meter value={io[1]} orientation="horizontal" length={42} thickness={4} segments={12} />
+            </div>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-9)", color: "var(--text-muted)" }}>OUT</span>
+            <div style={{ display: "flex", gap: 3 }}>
+              <Meter value={io[2]} orientation="horizontal" length={42} thickness={4} segments={12} />
+              <Meter value={io[3]} orientation="horizontal" length={42} thickness={4} segments={12} />
+            </div>
+          </div>
+          <button onClick={onBypass} className="aa-iconbtn" title="Global bypass" style={{ color: bypass ? "var(--text-muted)" : "var(--accent-primary)", background: bypass ? "var(--surface-page)" : "var(--accent-tint)" }}>
+            <Icon name="power" size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function TileList({ activeMap, selected, onSelect, onAdd }) {
+    return (
+      <div style={{ width: "var(--w-tile-list)", flex: "0 0 auto", display: "flex", flexDirection: "column", background: "var(--surface-page)", borderRight: "var(--border-hairline)", overflow: "hidden" }}>
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {ORDER.map((id, i) => {
+            const m = MODULE_BY_ID[id];
+            return (<ModuleTile key={id} index={i + 1} name={m.id} category={CAT[m.cat]} active={activeMap[id]} selected={selected === id} onClick={() => onSelect(id)} />);
+          })}
+        </div>
+        <button className="aa-addtile" onClick={onAdd} title="Add module" style={{ flex: "0 0 auto", height: 30, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "var(--surface-card)", border: "none", borderTop: "var(--border-hairline)", color: "var(--text-muted)", cursor: "pointer", fontSize: "var(--fs-9)", letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: "var(--fw-semibold)" }}>
+          <Icon name="plus" size={13} /> Module
+        </button>
+      </div>
+    );
+  }
+
+  function PresetDialog({ open, onClose, current, onPick }) {
+    if (!open) return null;
+    return (
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 20, background: "var(--aa-overlay-scrim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: 420, maxHeight: 420, background: "var(--surface-card)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-dialog)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", borderBottom: "var(--border-hairline)" }}>
+            <span style={{ fontSize: "var(--fs-13)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--tracking-label)", color: "var(--text-body)" }}>PRESETS</span>
+            <button className="aa-iconbtn" onClick={onClose} style={{ marginLeft: "auto" }}><Icon name="x" size={16} /></button>
+          </div>
+          <div style={{ overflowY: "auto", padding: 8 }}>
+            <div style={{ padding: "8px 10px 4px", fontFamily: "var(--font-mono)", fontSize: "var(--fs-9)", letterSpacing: "0.08em", color: "var(--text-muted)" }}>FACTORY</div>
+            {PRESETS.map((p) => (
+              <div key={p} onClick={() => onPick(p)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: "var(--radius-sm)", cursor: "pointer", background: p === current ? "var(--accent-tint)" : "transparent", color: p === current ? "var(--accent-press)" : "var(--text-body)", fontSize: "var(--fs-13)" }}>
+                <Icon name={p === current ? "check" : "music"} size={14} />{p}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function AddModuleDialog({ open, onClose, onToggle, activeMap }) {
+    if (!open) return null;
+    return (
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 20, background: "var(--aa-overlay-scrim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: 480, maxHeight: 440, background: "var(--surface-card)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-dialog)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", borderBottom: "var(--border-hairline)" }}>
+            <span style={{ fontSize: "var(--fs-13)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--tracking-label)", color: "var(--text-body)" }}>MODULES</span>
+            <button className="aa-iconbtn" onClick={onClose} style={{ marginLeft: "auto" }}><Icon name="x" size={16} /></button>
+          </div>
+          <div style={{ padding: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, overflowY: "auto" }}>
+            {MODULES.map((m) => (
+              <div key={m.id} onClick={() => onToggle(m.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: "var(--radius-sm)", border: "var(--border-hairline)", cursor: "pointer", background: activeMap[m.id] ? "var(--surface-page)" : "var(--surface-card)" }}>
+                <span style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: CAT[m.cat] }} />
+                <span style={{ width: 7, height: 7, borderRadius: 999, background: activeMap[m.id] ? CAT[m.cat] : "var(--state-inactive)" }} />
+                <span style={{ fontSize: "var(--fs-12)", color: "var(--text-body)" }}>{m.title}</span>
+                <span style={{ marginLeft: "auto", color: activeMap[m.id] ? CAT[m.cat] : "var(--text-muted)" }}><Icon name={activeMap[m.id] ? "check" : "plus"} size={14} /></span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------- app ---------- */
+  function App() {
+    const [selected, setSelected] = React.useState("CLIP");
+    const [presetIdx, setPresetIdx] = React.useState(1);
+    const [presetOpen, setPresetOpen] = React.useState(false);
+    const [addOpen, setAddOpen] = React.useState(false);
+    const [channels, setChannels] = React.useState("ST");
+    const [bypass, setBypass] = React.useState(false);
+    const [io, setIo] = React.useState([0.6, 0.55, 0.52, 0.5]);
+    const [active, setActive] = React.useState(() => {
+      const m = {}; ORDER.forEach((id) => (m[id] = true));
+      m.GATE = false; m.FLANGE = false; m.PHASER = false; m.SPATIAL = false; return m;
+    });
+
+    React.useEffect(() => {
+      let raf, t = 0;
+      const tick = () => {
+        t += 0.08;
+        setIo([0.55 + 0.25 * Math.abs(Math.sin(t)), 0.5 + 0.25 * Math.abs(Math.sin(t + 0.6)), 0.5 + 0.22 * Math.abs(Math.sin(t + 1.1)), 0.48 + 0.22 * Math.abs(Math.sin(t + 1.7))]);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    }, []);
+
+    React.useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
+
+    const toggle = (id) => setActive((a) => ({ ...a, [id]: !a[id] }));
+
+    return (
+      <div className="aa-plugin">
+        <PluginHeader preset={PRESETS[presetIdx]}
+          onPrev={() => setPresetIdx((i) => (i + PRESETS.length - 1) % PRESETS.length)}
+          onNext={() => setPresetIdx((i) => (i + 1) % PRESETS.length)}
+          channels={channels} onChannels={setChannels}
+          io={bypass ? [0, 0, 0, 0] : io} bypass={bypass} onBypass={() => setBypass((b) => !b)} />
+        <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+          <TileList activeMap={active} selected={selected} onSelect={setSelected} onAdd={() => setAddOpen(true)} />
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <div style={{ height: "var(--h-crt)", flex: "0 0 auto", borderBottom: "var(--border-hairline)", cursor: "pointer" }} onClick={() => setPresetOpen(true)} title="Browse presets">
+              <CRTDisplay label={"SPECTRUM · " + PRESETS[presetIdx].toUpperCase()} height={180} live={!bypass} />
+            </div>
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <ModuleDetailPanel moduleId={selected} active={active[selected] && !bypass} onToggleActive={() => toggle(selected)} />
+            </div>
+          </div>
+        </div>
+        <PresetDialog open={presetOpen} onClose={() => setPresetOpen(false)} current={PRESETS[presetIdx]} onPick={(p) => { setPresetIdx(PRESETS.indexOf(p)); setPresetOpen(false); }} />
+        <AddModuleDialog open={addOpen} onClose={() => setAddOpen(false)} onToggle={toggle} activeMap={active} />
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+
+  <script>
+    function fit() {
+      const W = 1000, H = 640, pad = 24;
+      const s = Math.min((innerWidth - pad) / W, (innerHeight - pad) / H, 1);
+      const el = document.getElementById('scaler');
+      if (el) el.style.transform = 'scale(' + s + ')';
+    }
+    addEventListener('resize', fit);
+    fit();
+    setTimeout(fit, 60);
+    setTimeout(fit, 400);
+  </script>
+</body>
+</html>

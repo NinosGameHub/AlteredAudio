@@ -1,0 +1,24 @@
+<!-- @dsCard group="Type" viewport="700x150" name="Title & display" subtitle="System font; bold uppercase title with light tracking" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .wm { font-size: var(--fs-13); font-weight: var(--fw-bold); letter-spacing: var(--tracking-wordmark); text-transform: uppercase; color: var(--text-body); }
+  .disp { font-size: var(--fs-24); font-weight: var(--fw-bold); color: var(--text-body); letter-spacing: -0.01em; }
+  .note { font-family: var(--font-mono); font-size: var(--fs-9); color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div>
+    <div class="wm">Altered Audio</div>
+    <div class="note">13px · bold · tracking 0.10em — header title</div>
+  </div>
+  <div>
+    <div class="disp">Modular effects rack</div>
+    <div class="note">24px · bold · -0.01em — display / marketing headings</div>
+  </div>
+</body>
+</html>

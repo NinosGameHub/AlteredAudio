@@ -1,0 +1,82 @@
+/* ============================================================
+   Altered Audio — Color tokens
+   Braun SK / Moog-modular warm-analog palette, lifted verbatim
+   from AaLookAndFeel.h (namespace AaColor). Warm ABS-plastic
+   surfaces, 5 category accent colors, amber CRT, flat cream knob.
+   ============================================================ */
+
+:root {
+  /* ---- Base palette (warm ABS plastic) ---- */
+  --aa-bg:             #E7E2D6;  /* dirty warm white (ABS plastic) */
+  --aa-surface:        #EDE8DC;  /* slightly lighter card          */
+  --aa-surface-alt:    #D9D4C8;  /* pressed / alt surface          */
+  --aa-border:         #B2ADA1;  /* warm grey separator            */
+  --aa-text-primary:   #1C1815;  /* near-black                     */
+  --aa-text-secondary: #7A746E;  /* warm mid-grey                  */
+
+  /* ---- Category accent colors (drive everything) ---- */
+  --aa-cat-dynamics:   #C4621D;  /* burnt orange  — comp/clip/gate/lim/trans/wave */
+  --aa-cat-spatial:    #5E8480;  /* desat. teal   — spatial        */
+  --aa-cat-modulation: #AA8B10;  /* mustard       — chorus/flange/phaser */
+  --aa-cat-time:       #7A5438;  /* warm brown    — delay/reverb   */
+  --aa-cat-filtereq:   #3A6694;  /* space-age blue— filter/eq      */
+
+  /* ---- Signal accents ---- */
+  --aa-accent:         #C4621D;  /* = dynamics (primary accent)    */
+  --aa-accent-faint:   #EED5C0;  /* warm tint                      */
+  --aa-green:          #4CA84C;  /* active / engaged               */
+  --aa-inactive:       #B2ADA1;  /* bypassed                       */
+
+  /* ---- Interaction shades (derived) ---- */
+  --aa-accent-hover:   #D26C24;
+  --aa-accent-press:   #A8511A;
+  --aa-overlay-scrim:  rgba(28, 24, 21, 0.42);
+
+  /* ---- CRT display ---- */
+  --aa-crt-bg:    #060504;  /* near-black phosphor glass */
+  --aa-crt-amber: #E4A210;  /* amber spectrum            */
+
+  /* ---- Knob (flat cream disc) ---- */
+  --aa-knob-body: #E4DFD0;  /* dirty cream disc          */
+  --aa-knob-line: #1C1815;  /* near-black indicator line */
+  --aa-knob-dot:  #8C8680;  /* range marker dots         */
+
+  /* ---- Semantic surface aliases ---- */
+  --surface-page:     var(--aa-bg);
+  --surface-card:     var(--aa-surface);
+  --surface-sunken:   var(--aa-surface-alt);
+  --surface-selected: var(--aa-accent-faint);
+
+  /* ---- Semantic text aliases ---- */
+  --text-body:      var(--aa-text-primary);
+  --text-muted:     var(--aa-text-secondary);
+  --text-on-accent: #FFFFFF;
+  --text-disabled:  var(--aa-inactive);
+
+  /* ---- Lines / borders ---- */
+  --border-default: var(--aa-border);
+
+  /* ---- Accent / brand ---- */
+  --accent-primary: var(--aa-accent);
+  --accent-hover:   var(--aa-accent-hover);
+  --accent-press:   var(--aa-accent-press);
+  --accent-tint:    var(--aa-accent-faint);
+
+  /* ---- Category semantic aliases ---- */
+  --cat-dynamics:   var(--aa-cat-dynamics);
+  --cat-spatial:    var(--aa-cat-spatial);
+  --cat-modulation: var(--aa-cat-modulation);
+  --cat-time:       var(--aa-cat-time);
+  --cat-filtereq:   var(--aa-cat-filtereq);
+
+  /* ---- CRT / knob semantic aliases ---- */
+  --crt-bg:    var(--aa-crt-bg);
+  --crt-amber: var(--aa-crt-amber);
+  --knob-body: var(--aa-knob-body);
+  --knob-line: var(--aa-knob-line);
+  --knob-dot:  var(--aa-knob-dot);
+
+  /* ---- State signals ---- */
+  --state-active:   var(--aa-green);
+  --state-inactive: var(--aa-inactive);
+}

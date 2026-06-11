@@ -1,0 +1,30 @@
+<!-- @dsCard group="Brand" viewport="700x230" name="Tile-list selected state" subtitle="Always-on 4px category strip; selected = tinted bg + colored name" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 20px; background: var(--surface-page); }
+  .list { width: 220px; border: var(--border-hairline); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-page); }
+  .tile { position: relative; height: 40px; border-bottom: 1px solid rgba(178,173,161,0.5); }
+  .tile:last-child { border-bottom: none; }
+  .tile .strip { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+  .tile .tint { position: absolute; left: 4px; top: 0; right: 0; bottom: 0; opacity: 0.14; }
+  .tile .num { position: absolute; left: 9px; top: 4px; font-family: var(--font-mono); font-size: var(--fs-8); color: var(--text-muted); opacity: 0.7; }
+  .tile .nm { position: absolute; inset: 0 16px 0 10px; display: flex; align-items: center; justify-content: center;
+              font-size: var(--fs-10); font-weight: var(--fw-bold); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-body); }
+  .tile .led { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 6.4px; height: 6.4px; border-radius: 999px; }
+  .note { font-family: var(--font-mono); font-size: var(--fs-9); color: var(--text-muted); margin-top: 14px; }
+</style>
+</head>
+<body>
+  <div class="list">
+    <div class="tile"><span class="strip" style="background:var(--cat-filtereq)"></span><span class="num">01</span><span class="nm">Filter</span><span class="led" style="background:var(--cat-filtereq)"></span></div>
+    <div class="tile"><span class="tint" style="background:var(--cat-time)"></span><span class="strip" style="background:var(--cat-time)"></span><span class="num">02</span><span class="nm" style="color:var(--cat-time)">Delay</span><span class="led" style="background:var(--cat-time)"></span></div>
+    <div class="tile"><span class="strip" style="background:var(--cat-time)"></span><span class="num">03</span><span class="nm">Reverb</span><span class="led" style="background:var(--state-inactive)"></span></div>
+    <div class="tile"><span class="strip" style="background:var(--cat-dynamics)"></span><span class="num">04</span><span class="nm">Comp</span><span class="led" style="background:var(--cat-dynamics)"></span></div>
+  </div>
+  <div class="note">strip = category color (always) &nbsp;|&nbsp; selected = 14% category tint + colored name &nbsp;|&nbsp; LED: category active / grey bypassed</div>
+</body>
+</html>

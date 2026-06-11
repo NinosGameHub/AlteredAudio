@@ -1,0 +1,42 @@
+/* ============================================================
+   Altered Audio — Spacing & sizing tokens
+   4px base grid. Layout heights mirror PluginEditor.h
+   (header 40 · list 160 · CRT 180 · window 1000×640) and
+   ModulePanels.cpp (knob 68, combo 24).
+   ============================================================ */
+
+:root {
+  /* ---- Spacing scale (4px base) ---- */
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;   /* panel horizontal padding */
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ---- Fixed layout dimensions (from PluginEditor.h) ---- */
+  --h-app-header:   40px;   /* kHeaderH */
+  --w-tile-list:    160px;  /* kListW   */
+  --h-crt:          180px;  /* kCRTH    */
+  --h-tile:         40px;   /* (640-40)/15 ≈ 40 */
+  --h-panel-header: 44px;   /* ModulePanel::kHeaderH */
+  --h-knob:         68px;   /* kKnobH   */
+  --h-control:      24px;   /* kComboH  */
+  --h-toggle:       18px;   /* pill switch */
+  --h-toggle-track: 32px;   /* pill width  */
+
+  /* ---- Window reference size ---- */
+  --w-plugin: 1000px;       /* kWindowW */
+  --h-plugin: 640px;        /* kWindowH */
+
+  /* ---- Radii (hardware-flat: tighter than the old Apple look) ---- */
+  --radius-xs:   3px;
+  --radius-sm:   4px;   /* combo boxes                  */
+  --radius-md:   6px;   /* dialogs / cards              */
+  --radius-lg:   8px;
+  --radius-pill: 999px; /* toggle                       */
+}

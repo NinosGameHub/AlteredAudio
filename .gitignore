@@ -1,3 +1,8 @@
 build/
 .vs/
 *.user
+
+# Design system auto-generated
+design-system/_ds_bundle.js
+design-system/_ds_manifest.json
+design-system/_adherence.oxlintrc.json

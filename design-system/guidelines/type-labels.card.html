@@ -1,0 +1,28 @@
+<!-- @dsCard group="Type" viewport="700x150" name="Control labels" subtitle="Short UPPERCASE technical words — the faceplate voice" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .labels { display: flex; flex-wrap: wrap; gap: 18px; }
+  .lab { font-size: var(--fs-10); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-muted); }
+  .panelhdr { font-size: var(--fs-15); font-weight: var(--fw-bold); color: var(--text-body); }
+  .note { font-family: var(--font-mono); font-size: var(--fs-9); color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div>
+    <div class="panelhdr">COMPRESSOR</div>
+    <div class="note">15px · bold — module-panel header</div>
+  </div>
+  <div>
+    <div class="labels">
+      <span class="lab">Freq</span><span class="lab">Q</span><span class="lab">Wet/Dry</span>
+      <span class="lab">Thresh</span><span class="lab">Pre-Delay</span><span class="lab">Mod Rate</span><span class="lab">Haas (ms)</span>
+    </div>
+    <div class="note" style="margin-top:8px">10px · semibold · uppercase — knob & control labels</div>
+  </div>
+</body>
+</html>

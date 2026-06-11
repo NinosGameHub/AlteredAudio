@@ -1,0 +1,66 @@
+<!-- @dsCard group="Components" viewport="700x280" name="Surfaces" subtitle="Tile list, card, status badges" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 24px; background: var(--surface-page); }
+  .row { display: flex; gap: 24px; align-items: flex-start; }
+  .gl { font-size: var(--fs-10); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; display: block; }
+  .list { width: 200px; border: var(--border-hairline); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-page); }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+  const { ModuleTile, Card, Badge } = window.AlteredAudioDesignSystem_3ace71;
+  function Demo() {
+    const [sel, setSel] = React.useState(1);
+    const tiles = [
+      ["Filter","var(--cat-filtereq)",true],
+      ["Delay","var(--cat-time)",true],
+      ["Reverb","var(--cat-time)",false],
+      ["Compressor","var(--cat-dynamics)",true],
+      ["Chorus","var(--cat-modulation)",true],
+    ];
+    return (
+      <div className="row">
+        <div>
+          <span className="gl">Tile list</span>
+          <div className="list">
+            {tiles.map(([n,c,a],i)=>(
+              <ModuleTile key={n} index={i+1} name={n} category={c} active={a}
+                selected={sel===i} onClick={()=>setSel(i)} />
+            ))}
+          </div>
+        </div>
+        <div style={{flex:1,display:"flex",flexDirection:"column",gap:18}}>
+          <div>
+            <span className="gl">Card</span>
+            <Card header="REVERB">
+              <div style={{fontSize:"var(--fs-13)",color:"var(--text-muted)"}}>Decay · Damping · Pre-Delay · Wet/Dry</div>
+            </Card>
+          </div>
+          <div>
+            <span className="gl">Badges</span>
+            <div className="badges">
+              <Badge tone="active" dot>Active</Badge>
+              <Badge tone="muted" dot>Bypassed</Badge>
+              <Badge tone="accent">VST3</Badge>
+              <Badge tone="neutral">15 Modules</Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>
