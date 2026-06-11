@@ -28,10 +28,21 @@ float BiquadFilter::processSample(float input, int channel)
 
 void BiquadFilter::updateCoefficients()
 {
-    const double omega = 2.0 * kPi * (double)frequency / sampleRate;
+    double c[5];
+    calcCoefficients(type, sampleRate, frequency, q, gainDb, c);
+    b0 = c[0]; b1 = c[1]; b2 = c[2];
+    a1 = c[3]; a2 = c[4];
+}
+
+void BiquadFilter::calcCoefficients(Type type, double sampleRate,
+                                    float frequency, float q, float gainDb, double out[5])
+{
+    // Clamp frequency below Nyquist so tan/sin stay well-behaved
+    const double fc    = juce::jlimit(10.0, sampleRate * 0.49, (double)frequency);
+    const double omega = 2.0 * kPi * fc / sampleRate;
     const double sinW  = std::sin(omega);
     const double cosW  = std::cos(omega);
-    const double alpha = sinW / (2.0 * (double)q);
+    const double alpha = sinW / (2.0 * juce::jmax(0.05, (double)q));
     const double A     = std::pow(10.0, (double)gainDb / 40.0);
 
     double b0_, b1_, b2_, a0_, a1_, a2_;
@@ -84,10 +95,39 @@ void BiquadFilter::updateCoefficients()
             a2_ =       (A+1.0) - (A-1.0)*cosW - s;
             break;
         }
+        case Type::LowPass1:
+        {
+            // Bilinear-transform first-order lowpass: 6 dB/oct
+            const double K = std::tan(kPi * fc / sampleRate);
+            b0_ = K;   b1_ = K;    b2_ = 0.0;
+            a0_ = K + 1.0;  a1_ = K - 1.0;  a2_ = 0.0;
+            break;
+        }
+        case Type::HighPass1:
+        {
+            const double K = std::tan(kPi * fc / sampleRate);
+            b0_ = 1.0;  b1_ = -1.0;  b2_ = 0.0;
+            a0_ = K + 1.0;  a1_ = K - 1.0;  a2_ = 0.0;
+            break;
+        }
         default:
             b0_ = 1.0; b1_ = b2_ = a1_ = a2_ = 0.0; a0_ = 1.0;
     }
 
-    b0 = b0_/a0_;  b1 = b1_/a0_;  b2 = b2_/a0_;
-    a1 = a1_/a0_;  a2 = a2_/a0_;
+    out[0] = b0_/a0_;  out[1] = b1_/a0_;  out[2] = b2_/a0_;
+    out[3] = a1_/a0_;  out[4] = a2_/a0_;
+}
+
+double BiquadFilter::magnitudeDb(const double c[5], double freqHz, double sampleRate)
+{
+    // |H(e^jw)|^2 evaluated directly from the difference-equation coefficients
+    const double w   = 2.0 * kPi * freqHz / sampleRate;
+    const double cw  = std::cos(w);
+    const double c2w = std::cos(2.0 * w);
+    const double b0 = c[0], b1 = c[1], b2 = c[2], a1 = c[3], a2 = c[4];
+
+    const double num = b0*b0 + b1*b1 + b2*b2 + 2.0*(b0*b1 + b1*b2)*cw + 2.0*b0*b2*c2w;
+    const double den = 1.0   + a1*a1 + a2*a2 + 2.0*(a1   + a1*a2)*cw + 2.0*a2*c2w;
+
+    return 10.0 * std::log10(juce::jmax(1e-12, num) / juce::jmax(1e-12, den));
 }

@@ -76,8 +76,8 @@ public:
     explicit FilterPanel(AlteredAudioProcessor&);
     void resized() override;
 private:
-    Combo typeCombo;
-    Knob  freqKnob, qKnob, gainKnob;
+    Combo typeCombo, slopeCombo;
+    Knob  freqKnob, qKnob, gainKnob, driveKnob, mixKnob, outputKnob;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FilterPanel)
 };
 
@@ -88,39 +88,29 @@ class EQCurveDisplay : public juce::Component, private juce::Timer
 {
 public:
     explicit EQCurveDisplay(AlteredAudioProcessor& p);
-    void paint    (juce::Graphics&) override;
-    void mouseDown(const juce::MouseEvent&) override;
-    void mouseDrag(const juce::MouseEvent&) override;
-    void mouseUp  (const juce::MouseEvent&) override;
+    void paint(juce::Graphics&) override;
 
-    void setSelectedBand(int band);  // 0–7
+    void setSelectedBand(int band);
     int  getSelectedBand() const { return selectedBand; }
 
-    std::function<void(int)> onBandSelected;  // fired on selection change
+    static juce::Colour bandColor(int bandIdx);
+
+    std::function<void()> onDataChanged;
 
 private:
     AlteredAudioProcessor& proc;
-    struct BandData { bool on = false; int type = 5; float freq = 1000.f, q = 0.7f, gain = 0.f; };
+    struct BandData { bool on = false; int type = 5; float freq = 1000.f, q = 0.7f, gain = 0.f; int slope = 1; };
     BandData bands[EQModule::kMaxBands];
     int  selectedBand = 0;
-    int  dragBand     = -1;
 
-    float computeResponseDb(float freqHz) const;
+    float computeResponseDb  (float freqHz) const;
+    float computeSingleBandDb(int bandIdx, float freqHz) const;
     void  timerCallback() override;
 
-    // coordinate helpers
     static constexpr float FMIN = 20.f, FMAX = 20000.f, GMAX = 18.f;
     static constexpr float padL = 8.f, padR = 8.f, padT = 10.f, padB = 18.f;
-    float xForF (float f,  float w) const;
-    float yForG (float db, float h) const;
-    float fForX (float x,  float w) const;
-    float gForY (float y,  float h) const;
-    int   bandAtPos(float x, float y) const;
-
-    // APVTS writers
-    void setBandFreq   (int band, float hz);
-    void setBandGain   (int band, float db);
-    void setBandEnabled(int band, bool on);
+    float xForF(float f,  float w) const;
+    float yForG(float db, float h) const;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EQCurveDisplay)
 };
@@ -139,14 +129,16 @@ private:
     {
         juce::ToggleButton enableBtn;
         Combo              typeCombo;
+        Combo              slopeCombo;
         Knob               freqKnob, qKnob, gainKnob;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enableAttach;
     };
-    EqBand         bands[kBands];
-    EQCurveDisplay curveDisplay;
-    juce::Label    bandLabel;
+    EqBand           bands[kBands];
+    EQCurveDisplay   curveDisplay;
+    juce::TextButton bandBtns[kBands];
 
     void showBand(int idx);
+    void updateBandButtons();
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EQPanel)
 };
 
@@ -172,11 +164,14 @@ public:
     explicit DelayPanel(AlteredAudioProcessor&);
     void resized() override;
 private:
-    Knob timeKnob, feedbackKnob, spreadKnob, wetDryKnob;
-    Knob fbLPKnob, fbHPKnob, duckingKnob, diffusionKnob;
-    Knob wowKnob, modRateKnob, modDepthKnob;
+    Knob  timeLKnob, timeRKnob, feedbackKnob, wetDryKnob;
+    Knob  fbLPKnob, fbHPKnob, duckingKnob, diffusionKnob;
+    Knob  wowKnob, modRateKnob, modDepthKnob;
+    Combo divLCombo, divRCombo;   // shown instead of time knobs when synced
+    juce::ToggleButton syncBtn     { "Sync" };
     juce::ToggleButton pingPongBtn { "Ping-Pong" };
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> pingPongAttach;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> syncAttach, pingPongAttach;
+    void updateTimeControls();
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DelayPanel)
 };
 

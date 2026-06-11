@@ -82,6 +82,20 @@ EffectModule* ModuleChain::addModule(std::unique_ptr<EffectModule> module)
     return raw;
 }
 
+int ModuleChain::getLatencySamples() const noexcept
+{
+    int total = 0;
+    for (int i = 0; i < numModules; ++i)
+    {
+        const int idx = processingOrder[i];
+        if (idx < 0 || idx >= (int)modules.size()) continue;
+        const auto* mod = modules[idx].get();
+        if (!mod->isBypassed())
+            total += mod->getLatencySamples();
+    }
+    return total;
+}
+
 void ModuleChain::setProcessingOrder(const int* order, int count) noexcept
 {
     const int n = std::min(count, kMaxModules);

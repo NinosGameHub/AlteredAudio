@@ -11,6 +11,10 @@ public:
     virtual void reset() = 0;
     virtual juce::String getName() const = 0;
 
+    // Samples of delay this module introduces (oversampling, lookahead...).
+    // The processor sums these for host latency compensation.
+    virtual int getLatencySamples() const { return 0; }
+
     void setBypassed(bool bypassed) { bypassed_ = bypassed; }
     bool isBypassed() const         { return bypassed_; }
 

@@ -117,6 +117,11 @@ void ClipperModule::prepare(double sampleRate, int blockSize)
     currentOsQuality = juce::jlimit(0, 2, pendingOsQuality);
     dryBuffer.setSize(kMaxChannels, blockSize, false, true, true);
 
+    juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32)blockSize, kMaxChannels };
+    dryDelay.prepare(spec);
+    dryDelay.setDelay(os[currentOsQuality]->getLatencyInSamples());
+    wasMixing = false;
+
     for (int ch = 0; ch < kMaxChannels; ++ch)
     {
         emphPreState [ch] = {};
@@ -129,6 +134,9 @@ void ClipperModule::reset()
     for (int i = 0; i < 3; ++i)
         if (os[i] != nullptr)
             os[i]->reset();
+
+    dryDelay.reset();
+    wasMixing = false;
 
     for (int ch = 0; ch < kMaxChannels; ++ch)
     {
@@ -223,13 +231,28 @@ void ClipperModule::process(juce::AudioBuffer<float>& buffer)
         }
     }
 
-    // ---- 5. Parallel mix ----
+    // ---- 5. Parallel mix (dry aligned to the oversampler's group delay) ----
     if (doMix)
     {
+        if (!wasMixing)
+            dryDelay.reset();   // flush stale samples from when mix was 100%
+        dryDelay.setDelay(os[currentOsQuality]->getLatencyInSamples());
+
+        for (int ch = 0; ch < numCh; ++ch)
+        {
+            auto* d = dryBuffer.getWritePointer(ch);
+            for (int i = 0; i < numSamples; ++i)
+            {
+                dryDelay.pushSample(ch, d[i]);
+                d[i] = dryDelay.popSample(ch);
+            }
+        }
+
         for (int ch = 0; ch < numCh; ++ch)
         {
             buffer.applyGain(ch, 0, numSamples, mix);
             buffer.addFrom(ch, 0, dryBuffer, ch, 0, numSamples, 1.0f - mix);
         }
     }
+    wasMixing = doMix;
 }

@@ -37,6 +37,10 @@ APVTS::ParameterLayout AlteredAudioProcessor::createParameterLayout()
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterFreq,  1}, "Frequency",  NRange(20.0f, 20000.0f, 0.0f, 0.25f), 1000.0f));
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterQ,     1}, "Q",          NRange(0.1f, 10.0f, 0.0f, 0.5f),      0.707f));
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterGain,  1}, "Gain (dB)",  NRange(-24.0f, 24.0f),                 0.0f));
+        g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::filterSlope, 1}, "Slope",      juce::StringArray{"12","24"},          0));
+        g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterDrive, 1}, "Drive (dB)", NRange(0.0f, 24.0f),                   0.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterMix,   1}, "Mix",        NRange(0.0f, 1.0f),                    1.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterOutput,1}, "Output (dB)",NRange(-24.0f, 24.0f),                 0.0f));
         layout.add(std::move(g));
     }
 
@@ -52,6 +56,7 @@ APVTS::ParameterLayout AlteredAudioProcessor::createParameterLayout()
             band->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::eqFreq(n),   1}, "Frequency", NRange(20.0f, 20000.0f, 0.0f, 0.25f), 1000.0f));
             band->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::eqQ(n),      1}, "Q",         NRange(0.1f, 10.0f, 0.0f, 0.5f),      0.707f));
             band->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::eqGain(n),   1}, "Gain (dB)", NRange(-24.0f, 24.0f),                 0.0f));
+            band->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::eqSlope(n),  1}, "Slope",     juce::StringArray{"6","12","18","24","48"}, 1));
             g->addChild(std::move(band));
         }
         layout.add(std::move(g));
@@ -69,9 +74,12 @@ APVTS::ParameterLayout AlteredAudioProcessor::createParameterLayout()
     {
         auto g = std::make_unique<Grp>("delay", "Delay", "|");
         g->addChild(std::make_unique<juce::AudioParameterBool> (PID{ParamID::delayBypass,    1}, "Bypass",        true));
-        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::delayTime,      1}, "Time (ms)",     NRange(0.0f, 2000.0f, 0.0f, 0.5f), 250.0f));
-        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::delayFeedback,  1}, "Feedback",      NRange(0.0f,   0.99f),              0.3f));
-        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::delaySpread,    1}, "Spread R (ms)", NRange(0.0f,  500.0f),              0.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::delayTime,  1}, "Time L (ms)", NRange(0.0f, 2000.0f, 0.0f, 0.5f), 250.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::delayTimeR, 1}, "Time R (ms)", NRange(0.0f, 2000.0f, 0.0f, 0.5f), 250.0f));
+        g->addChild(std::make_unique<juce::AudioParameterBool>  (PID{ParamID::delaySync,  1}, "Tempo Sync",  false));
+        g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::delayDivL,  1}, "Division L",  DelayModule::syncDivisionNames(), 4));
+        g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::delayDivR,  1}, "Division R",  DelayModule::syncDivisionNames(), 4));
+        g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::delayFeedback,  1}, "Feedback",      NRange(0.0f,   0.99f),              0.3f));
         g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::delayFbLPHz,    1}, "Tone LP Hz",    NRange(500.0f, 20000.0f, 0.0f, 0.4f), 6000.0f));
         g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::delayFbHPHz,    1}, "Tone HP Hz",    NRange(20.0f,   500.0f, 0.0f, 0.4f),    80.0f));
         g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::delayDucking,   1}, "Ducking",       NRange(0.0f,    1.0f),               0.0f));
@@ -328,6 +336,10 @@ void AlteredAudioProcessor::cacheParameterPointers()
     p_filterFreq    = vts->getRawParameterValue(ParamID::filterFreq);
     p_filterQ       = vts->getRawParameterValue(ParamID::filterQ);
     p_filterGain    = vts->getRawParameterValue(ParamID::filterGain);
+    p_filterSlope   = vts->getRawParameterValue(ParamID::filterSlope);
+    p_filterDrive   = vts->getRawParameterValue(ParamID::filterDrive);
+    p_filterMix     = vts->getRawParameterValue(ParamID::filterMix);
+    p_filterOutput  = vts->getRawParameterValue(ParamID::filterOutput);
 
     p_eqBypass      = vts->getRawParameterValue(ParamID::eqBypass);
     for (int n = 1; n <= EQModule::kMaxBands; ++n)
@@ -337,12 +349,16 @@ void AlteredAudioProcessor::cacheParameterPointers()
         p_eqFreq   [n-1] = vts->getRawParameterValue(ParamID::eqFreq(n));
         p_eqQ      [n-1] = vts->getRawParameterValue(ParamID::eqQ(n));
         p_eqGain   [n-1] = vts->getRawParameterValue(ParamID::eqGain(n));
+        p_eqSlope  [n-1] = vts->getRawParameterValue(ParamID::eqSlope(n));
     }
 
     p_delayBypass    = vts->getRawParameterValue(ParamID::delayBypass);
     p_delayTime      = vts->getRawParameterValue(ParamID::delayTime);
+    p_delayTimeR     = vts->getRawParameterValue(ParamID::delayTimeR);
+    p_delaySync      = vts->getRawParameterValue(ParamID::delaySync);
+    p_delayDivL      = vts->getRawParameterValue(ParamID::delayDivL);
+    p_delayDivR      = vts->getRawParameterValue(ParamID::delayDivR);
     p_delayFeedback  = vts->getRawParameterValue(ParamID::delayFeedback);
-    p_delaySpread    = vts->getRawParameterValue(ParamID::delaySpread);
     p_delayFbLPHz    = vts->getRawParameterValue(ParamID::delayFbLPHz);
     p_delayFbHPHz    = vts->getRawParameterValue(ParamID::delayFbHPHz);
     p_delayDucking   = vts->getRawParameterValue(ParamID::delayDucking);
@@ -509,6 +525,10 @@ void AlteredAudioProcessor::updateModuleParameters()
                 freqMod != 0.0f ? freqBase * std::pow(2.0f, freqMod * 3.0f) : freqBase));
             filterMod->setQ(*p_filterQ);
             filterMod->setGainDb(*p_filterGain);
+            filterMod->setSlope((int)*p_filterSlope);
+            filterMod->setDriveDb(*p_filterDrive);
+            filterMod->setMix(*p_filterMix);
+            filterMod->setOutputDb(*p_filterOutput);
         }
     }
 
@@ -527,6 +547,7 @@ void AlteredAudioProcessor::updateModuleParameters()
                 band.frequency = juce::jlimit(20.0f, 20000.0f, (float)*p_eqFreq[n]);
                 band.q         = juce::jlimit(0.1f,  10.0f,    (float)*p_eqQ[n]);
                 band.gainDb    = *p_eqGain[n];
+                band.slope     = p_eqSlope[n] ? (int)*p_eqSlope[n] : 1;
                 eqMod->setBand(n, band);
             }
         }
@@ -539,11 +560,20 @@ void AlteredAudioProcessor::updateModuleParameters()
         delayMod->setBypassed(bp);
         if (!bp)
         {
-            const float timeMod = modMatrix.getModulation(ParamID::delayTime);
-            delayMod->setDelayTimeMs(juce::jlimit(0.0f, 2000.0f,
-                (float)*p_delayTime + timeMod * 1000.0f));
+            const float timeMod = modMatrix.getModulation(ParamID::delayTime) * 1000.0f;
+            float msL, msR;
+            if (*p_delaySync > 0.5f)
+            {
+                msL = DelayModule::syncDivisionToMs((int)*p_delayDivL, currentBpm);
+                msR = DelayModule::syncDivisionToMs((int)*p_delayDivR, currentBpm);
+            }
+            else
+            {
+                msL = *p_delayTime;
+                msR = *p_delayTimeR;
+            }
+            delayMod->setDelayTimesMs(msL + timeMod, msR + timeMod);
             delayMod->setFeedback  (*p_delayFeedback);
-            delayMod->setSpreadMs  (*p_delaySpread);
             delayMod->setFbLPHz    (*p_delayFbLPHz);
             delayMod->setFbHPHz    (*p_delayFbHPHz);
             delayMod->setDucking   (*p_delayDucking);
@@ -803,11 +833,8 @@ void AlteredAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
     lfo2.prepare(sampleRate);
     envFollower.prepare(sampleRate, samplesPerBlock);
 
-    // Report total oversampling latency so the host can compensate
-    const int latency =
-        ((waveshaperMod != nullptr && !waveshaperMod->isBypassed()) ? waveshaperMod->getLatencySamples() : 0) +
-        ((clipperMod    != nullptr && !clipperMod->isBypassed())    ? clipperMod->getLatencySamples()    : 0);
-    setLatencySamples(latency);
+    // Report chain latency (oversampling + lookahead) so the host can compensate
+    setLatencySamples(chain.getLatencySamples());
 }
 
 void AlteredAudioProcessor::releaseResources()
@@ -830,8 +857,19 @@ void AlteredAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     // Envelope follower processes input before any DSP
     envFollower.processBlock(buffer);
 
+    // Host tempo for synced delay times (falls back to last known / 120)
+    if (auto* playHead = getPlayHead())
+        if (auto pos = playHead->getPosition())
+            if (auto bpm = pos->getBpm())
+                currentBpm = *bpm;
+
     // Read all APVTS params, run LFOs, apply modulation → update every module's setters
     updateModuleParameters();
+
+    // Keep host PDC current — bypass toggles and lookahead changes move the total
+    const int chainLatency = chain.getLatencySamples();
+    if (chainLatency != getLatencySamples())
+        setLatencySamples(chainLatency);
 
     // Channel encoding
     if (channelMode == ChannelMode::Mono && buffer.getNumChannels() >= 2)

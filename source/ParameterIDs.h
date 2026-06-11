@@ -12,6 +12,34 @@ namespace ParamID
     constexpr const char* filterFreq      = "filter_freq";
     constexpr const char* filterQ         = "filter_q";
     constexpr const char* filterGain      = "filter_gain";
+    constexpr const char* filterSlope     = "filter_slope";    // 0=12, 1=24 dB/oct (LP/HP)
+    constexpr const char* filterDrive     = "filter_drive";    // 0..24 dB input saturation
+    constexpr const char* filterMix       = "filter_mix";      // dry/wet
+    constexpr const char* filterOutput    = "filter_output";   // output trim dB
+
+    // Aurora Filter (standalone) modulation engine
+    constexpr const char* fltModSource    = "flt_mod_source";  // OFF / LFO A / LFO B / ENV
+    constexpr const char* fltModDest      = "flt_mod_dest";    // FREQ / RES / DRIVE
+    constexpr const char* fltModAmount    = "flt_mod_amount";  // -1..+1
+    constexpr const char* fltLfoAWave     = "flt_lfoa_wave";
+    constexpr const char* fltLfoARate     = "flt_lfoa_rate";
+    constexpr const char* fltLfoADepth    = "flt_lfoa_depth";
+    constexpr const char* fltLfoAPhase    = "flt_lfoa_phase";
+    constexpr const char* fltLfoBWave     = "flt_lfob_wave";
+    constexpr const char* fltLfoBRate     = "flt_lfob_rate";
+    constexpr const char* fltLfoBDepth    = "flt_lfob_depth";
+    constexpr const char* fltLfoBPhase    = "flt_lfob_phase";
+    constexpr const char* fltEnvAttack    = "flt_env_attack";
+    constexpr const char* fltEnvRelease   = "flt_env_release";
+    constexpr const char* fltEnvSens      = "flt_env_sens";
+    constexpr const char* fltLfoASync     = "flt_lfoa_sync";   // rate follows host tempo
+    constexpr const char* fltLfoADiv      = "flt_lfoa_div";
+    constexpr const char* fltLfoBSync     = "flt_lfob_sync";
+    constexpr const char* fltLfoBDiv      = "flt_lfob_div";
+    constexpr const char* fltEnvAtkSync   = "flt_env_atk_sync";
+    constexpr const char* fltEnvAtkDiv    = "flt_env_atk_div";
+    constexpr const char* fltEnvRelSync   = "flt_env_rel_sync";
+    constexpr const char* fltEnvRelDiv    = "flt_env_rel_div";
 
     // EQ (band index 1..8, returned as juce::String)
     constexpr const char* eqBypass        = "eq_bypass";
@@ -20,12 +48,16 @@ namespace ParamID
     inline juce::String eqFreq   (int n)  { return "eq_" + juce::String(n) + "_freq"; }
     inline juce::String eqQ      (int n)  { return "eq_" + juce::String(n) + "_q";    }
     inline juce::String eqGain   (int n)  { return "eq_" + juce::String(n) + "_gain"; }
+    inline juce::String eqSlope  (int n)  { return "eq_" + juce::String(n) + "_slope"; }
 
     // Delay
     constexpr const char* delayBypass     = "delay_bypass";
-    constexpr const char* delayTime       = "delay_time";
+    constexpr const char* delayTime       = "delay_time";      // Time L (ms, free mode)
+    constexpr const char* delayTimeR      = "delay_time_r";    // Time R (ms, free mode)
+    constexpr const char* delaySync       = "delay_sync";      // tempo sync on/off
+    constexpr const char* delayDivL       = "delay_div_l";     // note division L (synced)
+    constexpr const char* delayDivR       = "delay_div_r";     // note division R (synced)
     constexpr const char* delayFeedback   = "delay_feedback";
-    constexpr const char* delaySpread     = "delay_spread";
     constexpr const char* delayFbLPHz     = "delay_fb_lp";
     constexpr const char* delayFbHPHz     = "delay_fb_hp";
     constexpr const char* delayDucking    = "delay_ducking";

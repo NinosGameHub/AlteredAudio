@@ -52,6 +52,12 @@ void DelayModule::prepare(double sampleRate, int blockSize)
 
     lfoPhase = wowPhase = flutterPhase = 0.0f;
     duckEnv = 0.0f;
+
+    // 50ms glide — time changes pitch-bend like tape instead of clicking
+    timeSmL.reset(sampleRate, 0.05);
+    timeSmR.reset(sampleRate, 0.05);
+    timeSmL.setCurrentAndTargetValue(delayMsL);
+    timeSmR.setCurrentAndTargetValue(delayMsR);
 }
 
 void DelayModule::reset()
@@ -67,6 +73,8 @@ void DelayModule::reset()
             diffAP[s][ch].clear();
 
     lfoPhase = wowPhase = flutterPhase = duckEnv = 0.0f;
+    timeSmL.setCurrentAndTargetValue(delayMsL);
+    timeSmR.setCurrentAndTargetValue(delayMsR);
 }
 
 void DelayModule::process(juce::AudioBuffer<float>& buffer)
@@ -90,12 +98,8 @@ void DelayModule::process(juce::AudioBuffer<float>& buffer)
     const float duckAttCoeff = 1.0f - std::exp(-1.0f / (0.005f * fsr));
     const float duckRelCoeff = 1.0f - std::exp(-1.0f / (0.150f * fsr));
 
-    // Tape wobble depth: ±0.8% of delay time per unit of wowFlutter
-    const float baseSamples   = delayTimeMs * 0.001f * fsr;
-    const float maxTapeSamp   = baseSamples * wowFlutter * 0.008f;
     // Modulation LFO depth: 0..20ms
-    const float maxModSamp    = modDepth * 0.020f * fsr;
-    const float spreadSamples = spreadMs * 0.001f * fsr;
+    const float maxModSamp = modDepth * 0.020f * fsr;
 
     // Tape saturation drive
     const float satDrive  = 1.0f + wowFlutter * 2.5f;
@@ -121,13 +125,16 @@ void DelayModule::process(juce::AudioBuffer<float>& buffer)
         flutterPhase += flutterInc;
         if (flutterPhase >= juce::MathConstants<float>::twoPi) flutterPhase -= juce::MathConstants<float>::twoPi;
 
-        const float tapeWobble = (wowVal * 0.7f + flutterVal * 0.3f) * maxTapeSamp;
-        const float modWobble  = lfoVal * maxModSamp;
-        const float totalMod   = tapeWobble + modWobble;
+        // Smoothed per-channel delay times; tape wobble: ±0.8% of current time
+        const float baseL = timeSmL.getNextValue() * 0.001f * fsr;
+        const float baseR = timeSmR.getNextValue() * 0.001f * fsr;
+
+        const float wobbleFactor = (wowVal * 0.7f + flutterVal * 0.3f) * wowFlutter * 0.008f;
+        const float modWobble    = lfoVal * maxModSamp;
 
         // ---- Effective delay times ----
-        const float delL = juce::jlimit(2.0f, (float)(bufferSize - 2), baseSamples + totalMod);
-        const float delR = juce::jlimit(2.0f, (float)(bufferSize - 2), baseSamples + spreadSamples + totalMod);
+        const float delL = juce::jlimit(2.0f, (float)(bufferSize - 2), baseL + baseL * wobbleFactor + modWobble);
+        const float delR = juce::jlimit(2.0f, (float)(bufferSize - 2), baseR + baseR * wobbleFactor + modWobble);
 
         // ---- Ducking envelope (tracks input level) ----
         const float dryL = numCh > 0 ? buffer.getSample(0, i) : 0.0f;

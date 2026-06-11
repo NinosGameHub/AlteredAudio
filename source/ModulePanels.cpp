@@ -68,6 +68,7 @@ void ModulePanel::makeKnob(Knob& k, const juce::String& paramId, const juce::Str
 {
     k.slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     k.slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 64, 16);
+    k.slider.setNumDecimalPlacesToDisplay(1);
     addAndMakeVisible(k.slider);
 
     k.label.setText(labelText, juce::dontSendNotification);
@@ -139,16 +140,47 @@ namespace
             knobs[i]->slider.setBounds(kx, y + kLabelH, kw, kKnobH);
         }
     }
+
+    // Quadratic bezier midpoint smoothing — draws a smooth curve through all pts
+    static void buildSmoothPath(juce::Path& path,
+                                 const std::vector<juce::Point<float>>& pts)
+    {
+        if (pts.empty()) return;
+        path.startNewSubPath(pts.front());
+        const int n = (int)pts.size();
+        for (int i = 0; i < n - 1; ++i)
+        {
+            const float mx = (pts[i].x + pts[(size_t)i + 1].x) * 0.5f;
+            const float my = (pts[i].y + pts[(size_t)i + 1].y) * 0.5f;
+            path.quadraticTo(pts[i].x, pts[i].y, mx, my);
+        }
+        path.lineTo(pts.back());
+    }
 }
 
 // ============================================================
 //  EQCurveDisplay
 // ============================================================
 
+juce::Colour EQCurveDisplay::bandColor(int i)
+{
+    static const juce::Colour kColors[] = {
+        juce::Colour(0xFF4A9FE0),  // blue
+        juce::Colour(0xFFE07840),  // orange
+        juce::Colour(0xFF55C055),  // green
+        juce::Colour(0xFFB060E0),  // purple
+        juce::Colour(0xFFE0C040),  // yellow
+        juce::Colour(0xFF40C8C8),  // cyan
+        juce::Colour(0xFFE06080),  // pink
+        juce::Colour(0xFF90C050),  // lime
+    };
+    return kColors[i % 8];
+}
+
 EQCurveDisplay::EQCurveDisplay(AlteredAudioProcessor& p) : proc(p)
 {
     startTimerHz(30);
-    setMouseCursor(juce::MouseCursor::CrosshairCursor);
+    setInterceptsMouseClicks(false, false);
 }
 
 void EQCurveDisplay::timerCallback()
@@ -164,22 +196,29 @@ void EQCurveDisplay::timerCallback()
         const auto* q  = apvts.getRawParameterValue(ParamID::eqQ(n));
         const auto* ga = apvts.getRawParameterValue(ParamID::eqGain(n));
 
+        const auto* sl = apvts.getRawParameterValue(ParamID::eqSlope(n));
+
         BandData nd;
-        nd.on   = en && *en > 0.5f;
-        nd.type = ty ? (int)ty->load() : 5;
-        nd.freq = fr ? fr->load() : 1000.0f;
-        nd.q    = q  ? q->load()  : 0.7f;
-        nd.gain = ga ? ga->load() : 0.0f;
+        nd.on    = en && *en > 0.5f;
+        nd.type  = ty ? (int)ty->load() : 5;
+        nd.freq  = fr ? fr->load() : 1000.0f;
+        nd.q     = q  ? q->load()  : 0.7f;
+        nd.gain  = ga ? ga->load() : 0.0f;
+        nd.slope = sl ? (int)sl->load() : 1;
 
         if (nd.on != bands[i].on || nd.type != bands[i].type ||
-            nd.freq != bands[i].freq || nd.q != bands[i].q || nd.gain != bands[i].gain)
+            nd.freq != bands[i].freq || nd.q != bands[i].q ||
+            nd.gain != bands[i].gain || nd.slope != bands[i].slope)
         {
             bands[i] = nd;
             changed  = true;
         }
     }
     if (changed)
+    {
         repaint();
+        if (onDataChanged) onDataChanged();
+    }
 }
 
 // ---- coordinate helpers ----
@@ -197,161 +236,41 @@ float EQCurveDisplay::yForG(float db, float h) const
     return padT + (1.f - (db + GMAX) / (2.f * GMAX)) * plotH;
 }
 
-float EQCurveDisplay::fForX(float x, float w) const
-{
-    const float plotW = w - padL - padR;
-    return std::pow(10.f, std::log10(FMIN)
-                    + ((x - padL) / plotW) * (std::log10(FMAX) - std::log10(FMIN)));
-}
-
-float EQCurveDisplay::gForY(float y, float h) const
-{
-    const float plotH = h - padT - padB;
-    return (1.f - (y - padT) / plotH) * 2.f * GMAX - GMAX;
-}
-
-int EQCurveDisplay::bandAtPos(float x, float y) const
-{
-    const float w = (float)getWidth(), h = (float)getHeight();
-    constexpr float hitR = 12.f;
-    float bestD = hitR;
-    int   found = -1;
-    for (int i = 0; i < EQModule::kMaxBands; ++i)
-    {
-        const float cx = xForF(bands[i].freq, w);
-        const float cy = yForG(bands[i].on ? bands[i].gain : 0.f, h);
-        const float d  = std::hypot(x - cx, y - cy);
-        if (d < bestD) { bestD = d; found = i; }
-    }
-    return found;
-}
-
-// ---- APVTS writers ----
-
-void EQCurveDisplay::setBandFreq(int band, float hz)
-{
-    if (auto* p = proc.getAPVTS().getParameter(ParamID::eqFreq(band + 1)))
-        p->setValueNotifyingHost(p->getNormalisableRange().convertTo0to1(hz));
-}
-
-void EQCurveDisplay::setBandGain(int band, float db)
-{
-    if (auto* p = proc.getAPVTS().getParameter(ParamID::eqGain(band + 1)))
-        p->setValueNotifyingHost(p->getNormalisableRange().convertTo0to1(db));
-}
-
-void EQCurveDisplay::setBandEnabled(int band, bool on)
-{
-    if (auto* p = proc.getAPVTS().getParameter(ParamID::eqEnabled(band + 1)))
-        p->setValueNotifyingHost(on ? 1.0f : 0.0f);
-}
-
 // ---- selection ----
 
 void EQCurveDisplay::setSelectedBand(int band)
 {
     selectedBand = band;
     repaint();
-    if (onBandSelected)
-        onBandSelected(band);
-}
-
-// ---- mouse ----
-
-void EQCurveDisplay::mouseDown(const juce::MouseEvent& e)
-{
-    const float mx = (float)e.x, my = (float)e.y;
-    const float w = (float)getWidth(), h = (float)getHeight();
-
-    int hit = bandAtPos(mx, my);
-    if (hit >= 0)
-    {
-        dragBand = hit;
-        setSelectedBand(hit);
-        return;
-    }
-
-    // Click on empty curve area — place a new band
-    const float clickFreq = juce::jlimit(FMIN, FMAX, fForX(mx, w));
-    const float clickGain = juce::jlimit(-GMAX, GMAX, gForY(my, h));
-
-    // Find first disabled band
-    int target = -1;
-    for (int i = 0; i < EQModule::kMaxBands; ++i)
-        if (!bands[i].on) { target = i; break; }
-
-    if (target >= 0)
-    {
-        setBandFreq   (target, clickFreq);
-        setBandGain   (target, clickGain);
-        setBandEnabled(target, true);
-        dragBand = target;
-        setSelectedBand(target);
-    }
-    else
-    {
-        // All bands active — select the nearest one by frequency
-        float bestD = 1e9f;
-        for (int i = 0; i < EQModule::kMaxBands; ++i)
-        {
-            const float d = std::abs(std::log10(bands[i].freq) - std::log10(clickFreq));
-            if (d < bestD) { bestD = d; target = i; }
-        }
-        dragBand = target;
-        setSelectedBand(target);
-    }
-}
-
-void EQCurveDisplay::mouseDrag(const juce::MouseEvent& e)
-{
-    if (dragBand < 0) return;
-    const float w = (float)getWidth(), h = (float)getHeight();
-    const float mx = juce::jlimit(padL, w - padR, (float)e.x);
-    const float my = juce::jlimit(padT, h - padB, (float)e.y);
-
-    setBandFreq(dragBand, juce::jlimit(FMIN, FMAX, fForX(mx, w)));
-    setBandGain(dragBand, juce::jlimit(-GMAX, GMAX, gForY(my, h)));
-}
-
-void EQCurveDisplay::mouseUp(const juce::MouseEvent&)
-{
-    dragBand = -1;
 }
 
 // ---- response curve math ----
+
+float EQCurveDisplay::computeSingleBandDb(int bi, float freqHz) const
+{
+    const auto& b = bands[bi];
+    if (!b.on) return 0.f;
+
+    // Exact transfer-function magnitude — identical math to the audio path,
+    // so the curve shows precisely what you hear (including slope cascades
+    // and response cramping near Nyquist).
+    EQModule::BandParams p;
+    p.enabled   = true;
+    p.type      = static_cast<BiquadFilter::Type>(juce::jlimit(0, 7, b.type));
+    p.frequency = b.freq;
+    p.q         = b.q;
+    p.gainDb    = b.gain;
+    p.slope     = b.slope;
+
+    const double sr = proc.getSampleRate() > 0.0 ? proc.getSampleRate() : 48000.0;
+    return EQModule::bandResponseDb(p, freqHz, sr);
+}
 
 float EQCurveDisplay::computeResponseDb(float freqHz) const
 {
     float total = 0.0f;
     for (int i = 0; i < EQModule::kMaxBands; ++i)
-    {
-        const auto& b = bands[i];
-        if (!b.on) continue;
-        const float q   = std::max(0.1f, b.q);
-        const float oct = std::log2(freqHz / std::max(1.0f, b.freq));
-        const float bw  = 1.0f / q;
-        switch (b.type)
-        {
-            case 5: // Peak
-                total += b.gain * std::exp(-(oct * oct) / (2.0f * bw * bw));
-                break;
-            case 6: // LowShelf
-                total += b.gain / (1.0f + std::pow(std::max(0.0001f, freqHz / b.freq), 2.2f));
-                break;
-            case 7: // HighShelf
-                total += b.gain / (1.0f + std::pow(std::max(0.0001f, b.freq / freqHz), 2.2f));
-                break;
-            case 0: // LowPass
-                if (freqHz > b.freq)
-                    total -= 20.0f * q * std::log10(freqHz / b.freq);
-                break;
-            case 1: // HighPass
-                if (freqHz < b.freq)
-                    total -= 20.0f * q * std::log10(b.freq / freqHz);
-                break;
-            default: break;
-        }
-    }
+        total += computeSingleBandDb(i, freqHz);
     return juce::jlimit(-18.0f, 18.0f, total);
 }
 
@@ -359,32 +278,28 @@ float EQCurveDisplay::computeResponseDb(float freqHz) const
 
 void EQCurveDisplay::paint(juce::Graphics& g)
 {
-    const auto  bounds = getLocalBounds().toFloat();
-    const float w      = bounds.getWidth();
-    const float h      = bounds.getHeight();
-    const float plotW  = w - padL - padR;
-    const float plotH  = h - padT - padB;
-
-    g.setColour(AaColor::crtBg);
-    g.fillRoundedRectangle(bounds, 4.0f);
-
+    const float w     = (float)getWidth();
+    const float h     = (float)getHeight();
+    const float plotW = w - padL - padR;
+    const float plotH = h - padT - padB;
     const float logFMin = std::log10(FMIN), logFMax = std::log10(FMAX);
 
-    // Selected band frequency guide line
-    if (selectedBand >= 0)
+    g.setColour(AaColor::crtBg);
+    g.fillRoundedRectangle(0.f, 0.f, w, h, 4.0f);
+
+    // Selected-band frequency guide line
+    if (selectedBand >= 0 && bands[selectedBand].on)
     {
-        const float selX = xForF(bands[selectedBand].freq, w);
-        g.setColour(AaColor::catFilterEQ.withAlpha(0.18f));
-        g.drawVerticalLine((int)selX, padT, padT + plotH);
+        g.setColour(bandColor(selectedBand).withAlpha(0.20f));
+        g.drawVerticalLine((int)xForF(bands[selectedBand].freq, w), padT, padT + plotH);
     }
 
-    // Freq grid
+    // Grid
     for (float f : { 20.f,50.f,100.f,200.f,500.f,1000.f,2000.f,5000.f,10000.f,20000.f })
     {
         g.setColour(AaColor::crtAmber.withAlpha(0.09f));
         g.drawVerticalLine((int)xForF(f, w), padT, padT + plotH);
     }
-    // dB grid
     for (float db : { -12.f,-6.f,0.f,6.f,12.f })
     {
         g.setColour(db == 0.f ? AaColor::crtAmber.withAlpha(0.28f)
@@ -392,71 +307,54 @@ void EQCurveDisplay::paint(juce::Graphics& g)
         g.drawHorizontalLine((int)yForG(db, h), padL, padL + plotW);
     }
 
-    // Response curve (200 points)
-    juce::Path fill, line;
-    const float zeroY = yForG(0.f, h);
-    for (int i = 0; i <= 200; ++i)
+    // Per-band sub-curves (dim, in each band's color)
+    for (int bi = 0; bi < EQModule::kMaxBands; ++bi)
     {
-        const float t  = (float)i / 200.f;
-        const float f  = std::pow(10.f, logFMin + t * (logFMax - logFMin));
-        const float db = computeResponseDb(f);
-        const float x  = padL + t * plotW;
-        const float y  = yForG(db, h);
-        if (i == 0) { fill.startNewSubPath(x, y); line.startNewSubPath(x, y); }
-        else        { fill.lineTo(x, y);           line.lineTo(x, y); }
-    }
-    fill.lineTo(padL + plotW, zeroY);
-    fill.lineTo(padL, zeroY);
-    fill.closeSubPath();
+        if (!bands[bi].on) continue;
+        const bool isSel = (bi == selectedBand);
+        const float alpha = isSel ? 0.55f : 0.25f;
 
-    g.setColour(AaColor::catFilterEQ.withAlpha(0.14f));
-    g.fillPath(fill);
-    g.setColour(AaColor::catFilterEQ);
-    g.strokePath(line, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved));
-
-    // Band handles (selected on top, so draw unselected first)
-    g.setFont(juce::Font(8.0f));
-    for (int pass = 0; pass < 2; ++pass)
-    {
-        for (int i = 0; i < EQModule::kMaxBands; ++i)
+        std::vector<juce::Point<float>> pts;
+        pts.reserve(201);
+        for (int i = 0; i <= 200; ++i)
         {
-            const bool isSel = (i == selectedBand);
-            if (pass == 0 && isSel)  continue;
-            if (pass == 1 && !isSel) continue;
-
-            const auto& b  = bands[i];
-            const float cx = xForF(b.freq, w);
-            const float cy = yForG(b.on ? b.gain : 0.f, h);
-
-            if (isSel)
-            {
-                // outer glow ring
-                g.setColour(AaColor::catFilterEQ.withAlpha(0.35f));
-                g.fillEllipse(cx - 13.f, cy - 13.f, 26.f, 26.f);
-                // filled circle
-                g.setColour(b.on ? AaColor::catFilterEQ : AaColor::inactive);
-                g.fillEllipse(cx - 9.f, cy - 9.f, 18.f, 18.f);
-                g.setColour(juce::Colours::white);
-                g.setFont(juce::Font(9.0f, juce::Font::bold));
-                g.drawText(juce::String(i + 1),
-                           juce::Rectangle<float>(cx - 9.f, cy - 9.f + 1.f, 18.f, 18.f),
-                           juce::Justification::centred);
-            }
-            else
-            {
-                const float r = b.on ? 7.f : 5.f;
-                g.setColour(b.on ? AaColor::catFilterEQ.withAlpha(0.6f) : AaColor::inactive);
-                g.fillEllipse(cx - r, cy - r, r * 2.f, r * 2.f);
-                g.setColour(juce::Colours::white.withAlpha(0.7f));
-                g.setFont(juce::Font(8.0f));
-                g.drawText(juce::String(i + 1),
-                           juce::Rectangle<float>(cx - r, cy - r + 1.f, r * 2.f, r * 2.f),
-                           juce::Justification::centred);
-            }
+            const float t  = (float)i / 200.f;
+            const float f  = std::pow(10.f, logFMin + t * (logFMax - logFMin));
+            const float db = computeSingleBandDb(bi, f);
+            pts.push_back({ padL + t * plotW, yForG(juce::jlimit(-GMAX, GMAX, db), h) });
         }
+        juce::Path subLine;
+        buildSmoothPath(subLine, pts);
+        g.setColour(bandColor(bi).withAlpha(alpha));
+        g.strokePath(subLine, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved));
     }
 
-    // Freq labels
+    // Composite response curve (white/neutral, 2px) — bezier smoothed
+    const float zeroY = yForG(0.f, h);
+    {
+        std::vector<juce::Point<float>> pts;
+        pts.reserve(201);
+        for (int i = 0; i <= 200; ++i)
+        {
+            const float t  = (float)i / 200.f;
+            const float f  = std::pow(10.f, logFMin + t * (logFMax - logFMin));
+            const float db = computeResponseDb(f);
+            pts.push_back({ padL + t * plotW, yForG(db, h) });
+        }
+        juce::Path line, fill;
+        buildSmoothPath(line, pts);
+        buildSmoothPath(fill, pts);
+        fill.lineTo(padL + plotW, zeroY);
+        fill.lineTo(padL, zeroY);
+        fill.closeSubPath();
+
+        g.setColour(juce::Colours::white.withAlpha(0.10f));
+        g.fillPath(fill);
+        g.setColour(juce::Colours::white.withAlpha(0.80f));
+        g.strokePath(line, juce::PathStrokeType(1.8f, juce::PathStrokeType::curved));
+    }
+
+    // Freq axis labels
     g.setColour(AaColor::crtAmber.withAlpha(0.55f));
     g.setFont(juce::Font(9.0f));
     for (auto [f, lbl] : std::initializer_list<std::pair<float,const char*>>{
@@ -577,10 +475,14 @@ FilterPanel::FilterPanel(AlteredAudioProcessor& p)
 {
     const juce::StringArray types { "LowPass","HighPass","BandPass","Notch",
                                     "AllPass","Peak","LowShelf","HighShelf" };
-    makeCombo(typeCombo, ParamID::filterType, "TYPE", types);
-    makeKnob(freqKnob, ParamID::filterFreq, "FREQ");
-    makeKnob(qKnob,    ParamID::filterQ,    "Q");
-    makeKnob(gainKnob, ParamID::filterGain, "GAIN");
+    makeCombo(typeCombo,  ParamID::filterType,  "TYPE",  types);
+    makeCombo(slopeCombo, ParamID::filterSlope, "SLOPE", {"12","24"});
+    makeKnob(freqKnob,   ParamID::filterFreq,   "FREQ");
+    makeKnob(qKnob,      ParamID::filterQ,      "RESONANCE");
+    makeKnob(gainKnob,   ParamID::filterGain,   "GAIN");
+    makeKnob(driveKnob,  ParamID::filterDrive,  "DRIVE");
+    makeKnob(mixKnob,    ParamID::filterMix,    "MIX");
+    makeKnob(outputKnob, ParamID::filterOutput, "OUTPUT");
 }
 
 void FilterPanel::resized()
@@ -589,11 +491,16 @@ void FilterPanel::resized()
     const auto area = contentArea();
     const int x = area.getX(), y = area.getY(), w = area.getWidth();
 
-    typeCombo.label.setBounds(x,            y,             150, kLabelH);
-    typeCombo.box.setBounds  (x,            y + kLabelH,   150, kComboH);
+    typeCombo.label.setBounds (x,       y,           150, kLabelH);
+    typeCombo.box.setBounds   (x,       y + kLabelH, 150, kComboH);
+    slopeCombo.label.setBounds(x + 160, y,            80, kLabelH);
+    slopeCombo.box.setBounds  (x + 160, y + kLabelH,  80, kComboH);
 
-    Knob* row[] = { &freqKnob, &qKnob, &gainKnob };
-    placeKnobRow(row, 3, x, y + kLabelH + kComboH + 12, w);
+    Knob* row1[] = { &freqKnob, &qKnob, &gainKnob };
+    placeKnobRow(row1, 3, x, y + kLabelH + kComboH + 12, w);
+
+    Knob* row2[] = { &driveKnob, &mixKnob, &outputKnob };
+    placeKnobRow(row2, 3, x, y + kLabelH + kComboH + 12 + kRowH + 12, w);
 }
 
 // ============================================================
@@ -605,16 +512,26 @@ EQPanel::EQPanel(AlteredAudioProcessor& p)
 {
     addAndMakeVisible(curveDisplay);
 
-    bandLabel.setFont(juce::Font(11.0f, juce::Font::bold));
-    bandLabel.setColour(juce::Label::textColourId, AaColor::catFilterEQ);
-    bandLabel.setJustificationType(juce::Justification::centredLeft);
-    addAndMakeVisible(bandLabel);
-
     const juce::StringArray types { "LowPass","HighPass","BandPass","Notch",
                                     "AllPass","Peak","LowShelf","HighShelf" };
     for (int i = 0; i < kBands; ++i)
     {
         const int n = i + 1;
+
+        // Band selector button (1–8) in the header row
+        bandBtns[i].setButtonText(juce::String(n));
+        bandBtns[i].setClickingTogglesState(false);
+        bandBtns[i].onClick = [this, i]()
+        {
+            // If band is inactive, activate it first
+            auto* en = proc.getAPVTS().getParameter(ParamID::eqEnabled(i + 1));
+            if (en && en->getValue() < 0.5f)
+                en->setValueNotifyingHost(1.0f);
+            curveDisplay.setSelectedBand(i);
+            showBand(i);
+        };
+        addAndMakeVisible(bandBtns[i]);
+
         bands[i].enableBtn.setButtonText("ACTIVE");
         bands[i].enableBtn.setClickingTogglesState(true);
         addAndMakeVisible(bands[i].enableBtn);
@@ -622,31 +539,60 @@ EQPanel::EQPanel(AlteredAudioProcessor& p)
             std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
                 proc.getAPVTS(), ParamID::eqEnabled(n), bands[i].enableBtn);
 
-        makeCombo(bands[i].typeCombo, ParamID::eqType(n),  "TYPE", types);
-        makeKnob (bands[i].freqKnob,  ParamID::eqFreq(n),  "FREQ");
-        makeKnob (bands[i].qKnob,     ParamID::eqQ(n),     "Q");
-        makeKnob (bands[i].gainKnob,  ParamID::eqGain(n),  "GAIN");
+        makeCombo(bands[i].typeCombo,  ParamID::eqType(n),  "TYPE",  types);
+        makeCombo(bands[i].slopeCombo, ParamID::eqSlope(n), "SLOPE", {"6","12","18","24","48"});
+        bands[i].typeCombo.box.onChange = [this, i]() { showBand(i); };
+        makeKnob (bands[i].freqKnob,   ParamID::eqFreq(n),  "FREQ");
+        makeKnob (bands[i].qKnob,      ParamID::eqQ(n),     "Q");
+        makeKnob (bands[i].gainKnob,   ParamID::eqGain(n),  "GAIN");
     }
 
-    curveDisplay.onBandSelected = [this](int idx) { showBand(idx); };
+    curveDisplay.onDataChanged = [this]() { updateBandButtons(); };
     showBand(0);
 }
 
 void EQPanel::showBand(int idx)
 {
-    bandLabel.setText("BAND " + juce::String(idx + 1), juce::dontSendNotification);
+    auto* tyRaw = proc.getAPVTS().getRawParameterValue(ParamID::eqType(idx + 1));
+    const int type = tyRaw ? (int)tyRaw->load() : 5;
+    // Gain only affects Peak/LowShelf/HighShelf; slope only applies to LP/HP.
+    const bool hasGain  = (type == 5 || type == 6 || type == 7);
+    const bool hasSlope = (type == 0 || type == 1);
+
     for (int i = 0; i < kBands; ++i)
     {
         const bool vis = (i == idx);
         bands[i].enableBtn.setVisible(vis);
         bands[i].typeCombo.label.setVisible(vis);
         bands[i].typeCombo.box.setVisible(vis);
+        bands[i].slopeCombo.label.setVisible(vis && hasSlope);
+        bands[i].slopeCombo.box.setVisible(vis && hasSlope);
         bands[i].freqKnob.label.setVisible(vis);
         bands[i].freqKnob.slider.setVisible(vis);
         bands[i].qKnob.label.setVisible(vis);
         bands[i].qKnob.slider.setVisible(vis);
-        bands[i].gainKnob.label.setVisible(vis);
-        bands[i].gainKnob.slider.setVisible(vis);
+        bands[i].gainKnob.label.setVisible(vis && hasGain);
+        bands[i].gainKnob.slider.setVisible(vis && hasGain);
+    }
+    updateBandButtons();
+}
+
+void EQPanel::updateBandButtons()
+{
+    const int sel = curveDisplay.getSelectedBand();
+    for (int i = 0; i < kBands; ++i)
+    {
+        const auto* en = proc.getAPVTS().getRawParameterValue(ParamID::eqEnabled(i + 1));
+        const bool active = en && *en > 0.5f;
+        const bool isSel  = (i == sel);
+        const juce::Colour col = EQCurveDisplay::bandColor(i);
+
+        bandBtns[i].setColour(juce::TextButton::buttonColourId,
+                               isSel  ? col :
+                               active ? col.withAlpha(0.25f) : AaColor::surfaceAlt);
+        bandBtns[i].setColour(juce::TextButton::textColourOffId,
+                               isSel  ? juce::Colours::white :
+                               active ? col : AaColor::textSecond);
     }
 }
 
@@ -656,31 +602,38 @@ void EQPanel::resized()
     const auto area = contentArea();
     const int  ax = area.getX(), ay = area.getY(), aw = area.getWidth(), ah = area.getHeight();
 
-    // Reserve space for controls: label row + combo row + knob row
-    constexpr int labelRowH = 26;
+    constexpr int btnRowH  = 28;
     constexpr int comboRowH = kLabelH + kComboH;
     constexpr int knobRowH  = kLabelH + kKnobH;
-    constexpr int ctrlTotal = labelRowH + 6 + comboRowH + 6 + knobRowH;
+    constexpr int ctrlTotal = btnRowH + 6 + comboRowH + 6 + knobRowH;
 
     const int curveH = juce::jmax(120, ah - 8 - ctrlTotal);
-    const int ctrlY  = ay + curveH + 8;
+    const int btnY   = ay + curveH + 8;
+    const int ctrlY  = btnY + btnRowH + 6;
 
     curveDisplay.setBounds(ax, ay, aw, curveH);
 
-    // Band label + enable toggle
-    bandLabel.setBounds(ax, ctrlY, 100, labelRowH);
-    const int comboW  = 150;
-    const int knobsX  = ax + comboW + 12;
-    const int knobsW  = aw - comboW - 12;
-    const int comboY  = ctrlY + labelRowH + 6;
-    const int knobY   = comboY + comboRowH + 6;
+    // Band selector row: 8 equal-width buttons
+    const int btnW = aw / kBands;
+    for (int i = 0; i < kBands; ++i)
+        bandBtns[i].setBounds(ax + i * btnW, btnY, btnW, btnRowH);
+
+    constexpr int typeW    = 115;
+    constexpr int slopeW   = 80;
+    constexpr int comboGap = 6;
+    const int knobsX = ax + typeW + comboGap + slopeW + 10;
+    const int knobsW = aw - (typeW + comboGap + slopeW + 10);
+    const int comboY = ctrlY;
+    const int knobY  = comboY + comboRowH + 6;
 
     for (int i = 0; i < kBands; ++i)
     {
-        bands[i].enableBtn.setBounds(ax + aw - 80, ctrlY, 80, labelRowH);
+        bands[i].enableBtn.setBounds(ax + aw - 80, btnY - btnRowH - 2, 80, btnRowH);
 
-        bands[i].typeCombo.label.setBounds(ax, comboY,           comboW, kLabelH);
-        bands[i].typeCombo.box.setBounds  (ax, comboY + kLabelH, comboW, kComboH);
+        bands[i].typeCombo.label.setBounds (ax,                    comboY,           typeW,  kLabelH);
+        bands[i].typeCombo.box.setBounds   (ax,                    comboY + kLabelH, typeW,  kComboH);
+        bands[i].slopeCombo.label.setBounds(ax + typeW + comboGap, comboY,           slopeW, kLabelH);
+        bands[i].slopeCombo.box.setBounds  (ax + typeW + comboGap, comboY + kLabelH, slopeW, kComboH);
 
         Knob* krow[] = { &bands[i].freqKnob, &bands[i].qKnob, &bands[i].gainKnob };
         placeKnobRow(krow, 3, knobsX, knobY, knobsW);
@@ -712,9 +665,9 @@ void GainPanel::resized()
 DelayPanel::DelayPanel(AlteredAudioProcessor& p)
     : ModulePanel(p, "DELAY", ParamID::delayBypass)
 {
-    makeKnob(timeKnob,      ParamID::delayTime,      "TIME (ms)");
+    makeKnob(timeLKnob,     ParamID::delayTime,      "TIME L (ms)");
+    makeKnob(timeRKnob,     ParamID::delayTimeR,     "TIME R (ms)");
     makeKnob(feedbackKnob,  ParamID::delayFeedback,  "FEEDBACK");
-    makeKnob(spreadKnob,    ParamID::delaySpread,    "SPREAD (ms)");
     makeKnob(wetDryKnob,    ParamID::delayWetDry,    "WET/DRY");
     makeKnob(fbLPKnob,      ParamID::delayFbLPHz,    "TONE LP");
     makeKnob(fbHPKnob,      ParamID::delayFbHPHz,    "TONE HP");
@@ -724,9 +677,35 @@ DelayPanel::DelayPanel(AlteredAudioProcessor& p)
     makeKnob(modRateKnob,   ParamID::delayModRate,   "MOD RATE");
     makeKnob(modDepthKnob,  ParamID::delayModDepth,  "MOD DEPTH");
 
+    makeCombo(divLCombo, ParamID::delayDivL, "TIME L", DelayModule::syncDivisionNames());
+    makeCombo(divRCombo, ParamID::delayDivR, "TIME R", DelayModule::syncDivisionNames());
+    divLCombo.label.setJustificationType(juce::Justification::centred);
+    divRCombo.label.setJustificationType(juce::Justification::centred);
+
+    addAndMakeVisible(syncBtn);
+    syncBtn.setClickingTogglesState(true);
+    syncAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        proc.getAPVTS(), ParamID::delaySync, syncBtn);
+    syncBtn.onClick = [this]() { updateTimeControls(); };
+
     addAndMakeVisible(pingPongBtn);
     pingPongAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         proc.getAPVTS(), ParamID::delayPingPong, pingPongBtn);
+
+    updateTimeControls();
+}
+
+void DelayPanel::updateTimeControls()
+{
+    const bool sync = syncBtn.getToggleState();
+    timeLKnob.label.setVisible(!sync);
+    timeLKnob.slider.setVisible(!sync);
+    timeRKnob.label.setVisible(!sync);
+    timeRKnob.slider.setVisible(!sync);
+    divLCombo.label.setVisible(sync);
+    divLCombo.box.setVisible(sync);
+    divRCombo.label.setVisible(sync);
+    divRCombo.box.setVisible(sync);
 }
 
 void DelayPanel::resized()
@@ -735,16 +714,27 @@ void DelayPanel::resized()
     const auto area = contentArea();
     const int x = area.getX(), y = area.getY(), w = area.getWidth();
 
-    Knob* row1[] = { &timeKnob, &feedbackKnob, &spreadKnob, &wetDryKnob };
+    Knob* row1[] = { &timeLKnob, &timeRKnob, &feedbackKnob, &wetDryKnob };
     placeKnobRow(row1, 4, x, y, w);
+
+    // Synced mode: division combos occupy the two time-knob slots
+    const int slotW = w / 4;
+    divLCombo.label.setBounds(x,             y,                        slotW - 4, kLabelH);
+    divLCombo.box.setBounds  (x,             y + kLabelH + 20,         slotW - 4, kComboH);
+    divRCombo.label.setBounds(x + slotW,     y,                        slotW - 4, kLabelH);
+    divRCombo.box.setBounds  (x + slotW,     y + kLabelH + 20,         slotW - 4, kComboH);
 
     Knob* row2[] = { &fbLPKnob, &fbHPKnob, &duckingKnob, &diffusionKnob };
     placeKnobRow(row2, 4, x, y + kRowH + 12, w);
 
+    // Row 3: three knobs over 3/4 width; toggles stacked in the last quarter
+    const int y3 = y + (kRowH + 12) * 2;
     Knob* row3[] = { &wowKnob, &modRateKnob, &modDepthKnob };
-    placeKnobRow(row3, 3, x, y + (kRowH + 12) * 2, w);
+    placeKnobRow(row3, 3, x, y3, w * 3 / 4);
 
-    pingPongBtn.setBounds(x + w * 3 / 4, y + (kRowH + 12) * 2 + kRowH / 2 - 11, 110, 22);
+    const int tx = x + w * 3 / 4 + 8;
+    syncBtn    .setBounds(tx, y3 + kLabelH + 6,  110, 22);
+    pingPongBtn.setBounds(tx, y3 + kLabelH + 34, 110, 22);
 }
 
 // ============================================================

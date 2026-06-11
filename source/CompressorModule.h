@@ -37,6 +37,13 @@ public:
 
     float getGainReductionDb() const { return gainReductionDb; }
 
+    // Lookahead delays the audio path — must match the computation in process()
+    int getLatencySamples() const override
+    {
+        return juce::jlimit(0, juce::jmax(0, lookaheadBufSize - 1),
+                            (int)(lookaheadMs * 0.001f * (float)sampleRate_));
+    }
+
 protected:
     float computeGainDb(float levelDb) const;
 

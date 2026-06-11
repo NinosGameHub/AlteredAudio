@@ -66,6 +66,7 @@ private:
     ChannelMode channelMode    = ChannelMode::Stereo;
     double      currentSampleRate = 44100.0;
     int         currentBlockSize  = 512;
+    double      currentBpm        = 120.0;   // from host playhead; 120 fallback
 
     juce::AudioProcessorValueTreeState apvts;
 
@@ -98,6 +99,10 @@ private:
     std::atomic<float>* p_filterFreq    = nullptr;
     std::atomic<float>* p_filterQ       = nullptr;
     std::atomic<float>* p_filterGain    = nullptr;
+    std::atomic<float>* p_filterSlope   = nullptr;
+    std::atomic<float>* p_filterDrive   = nullptr;
+    std::atomic<float>* p_filterMix     = nullptr;
+    std::atomic<float>* p_filterOutput  = nullptr;
 
     std::atomic<float>* p_eqBypass                          = nullptr;
     std::atomic<float>* p_eqEnabled[EQModule::kMaxBands]    = {};
@@ -105,11 +110,15 @@ private:
     std::atomic<float>* p_eqFreq   [EQModule::kMaxBands]    = {};
     std::atomic<float>* p_eqQ      [EQModule::kMaxBands]    = {};
     std::atomic<float>* p_eqGain   [EQModule::kMaxBands]    = {};
+    std::atomic<float>* p_eqSlope  [EQModule::kMaxBands]    = {};
 
     std::atomic<float>* p_delayBypass    = nullptr;
-    std::atomic<float>* p_delayTime      = nullptr;
+    std::atomic<float>* p_delayTime      = nullptr;   // Time L (ms)
+    std::atomic<float>* p_delayTimeR     = nullptr;
+    std::atomic<float>* p_delaySync      = nullptr;
+    std::atomic<float>* p_delayDivL      = nullptr;
+    std::atomic<float>* p_delayDivR      = nullptr;
     std::atomic<float>* p_delayFeedback  = nullptr;
-    std::atomic<float>* p_delaySpread    = nullptr;
     std::atomic<float>* p_delayFbLPHz    = nullptr;
     std::atomic<float>* p_delayFbHPHz    = nullptr;
     std::atomic<float>* p_delayDucking   = nullptr;

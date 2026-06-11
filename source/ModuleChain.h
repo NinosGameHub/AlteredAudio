@@ -22,6 +22,9 @@ public:
     // Called from the audio thread — no heap allocation.
     void setProcessingOrder(const int* order, int count) noexcept;
 
+    // Total latency of all active (non-bypassed) modules, for host PDC.
+    int getLatencySamples() const noexcept;
+
 private:
     static constexpr int kRampSamples = 64;   // ~1.4 ms at 44.1 kHz
 

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmake --build *)",
+      "Bash(diff -rq *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(Get-Item *)",
+      "PowerShell(Copy-Item*)",
+      "PowerShell(Expand-Archive *)",
+      "PowerShell(Start-Process powershell -Verb RunAs *)"
+    ]
+  }
+}

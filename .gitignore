@@ -6,3 +6,6 @@ build/
 design-system/_ds_bundle.js
 design-system/_ds_manifest.json
 design-system/_adherence.oxlintrc.json
+
+# Crash dumps
+*.stackdump

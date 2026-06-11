@@ -22,7 +22,7 @@ public:
     void setEmphGainDb (float dB)  { emphGainDb       = juce::jlimit(0.0f,  12.0f,     dB); }
     void setKneeWidth  (float v)   { kneeWidth        = juce::jlimit(0.0f,   1.0f,      v); }
 
-    int getLatencySamples() const
+    int getLatencySamples() const override
     {
         const int q = currentOsQuality;
         return (os[q] != nullptr) ? (int)os[q]->getLatencyInSamples() : 0;
@@ -67,5 +67,12 @@ private:
     BiquadState emphPostState[kMaxChannels];
 
     juce::AudioBuffer<float> dryBuffer;
+
+    // Aligns the dry path with the active oversampler's group delay
+    // so the parallel mix stays phase-coherent.
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Lagrange3rd>
+        dryDelay { 128 };
+    bool wasMixing = false;
+
     double sampleRate_ = 44100.0;
 };

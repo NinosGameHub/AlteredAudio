@@ -11,11 +11,35 @@ public:
     void reset() override;
     juce::String getName() const override { return "Delay"; }
 
-    void setDelayTimeMs (float ms) { delayTimeMs = juce::jlimit(0.0f, kMaxDelayMs, ms); }
+    void setDelayTimesMs(float msL, float msR)
+    {
+        delayMsL = juce::jlimit(0.0f, kMaxDelayMs, msL);
+        delayMsR = juce::jlimit(0.0f, kMaxDelayMs, msR);
+        timeSmL.setTargetValue(delayMsL);
+        timeSmR.setTargetValue(delayMsR);
+    }
     void setFeedback    (float f)  { feedback    = juce::jlimit(0.0f, 0.99f, f); }
     void setWetDry      (float w)  { wetDry      = juce::jlimit(0.0f, 1.0f,  w); }
     void setPingPong    (bool pp)  { pingPong    = pp; }
-    void setSpreadMs    (float ms) { spreadMs    = juce::jlimit(0.0f, 500.0f, ms); }
+
+    // ---- Tempo sync — shared by DSP and UI ----
+    static const juce::StringArray& syncDivisionNames()
+    {
+        static const juce::StringArray names {
+            "1/1","1/2","1/2D","1/2T","1/4","1/4D","1/4T",
+            "1/8","1/8D","1/8T","1/16","1/16D","1/16T","1/32" };
+        return names;
+    }
+    static float syncDivisionToMs(int divIndex, double bpm)
+    {
+        // Length in quarter notes; D = dotted (x1.5), T = triplet (x2/3)
+        static constexpr float beats[] = {
+            4.0f, 2.0f, 3.0f, 4.0f/3.0f, 1.0f, 1.5f, 2.0f/3.0f,
+            0.5f, 0.75f, 1.0f/3.0f, 0.25f, 0.375f, 1.0f/6.0f, 0.125f };
+        const int i = juce::jlimit(0, 13, divIndex);
+        const double quarterMs = 60000.0 / juce::jlimit(20.0, 999.0, bpm);
+        return (float)(beats[i] * quarterMs);
+    }
     void setFbLPHz      (float hz) { fbLPHz      = juce::jlimit(500.0f, 20000.0f, hz); }
     void setFbHPHz      (float hz) { fbHPHz      = juce::jlimit(20.0f,  500.0f,   hz); }
     void setDucking     (float d)  { ducking     = juce::jlimit(0.0f, 1.0f,  d); }
@@ -78,12 +102,16 @@ private:
     // Ducking envelope follower
     float duckEnv = 0.0f;
 
+    // Smoothed per-channel delay times (ms) — glide like tape instead of clicking
+    juce::SmoothedValue<float> timeSmL { 250.0f };
+    juce::SmoothedValue<float> timeSmR { 250.0f };
+
     // Parameters
-    float delayTimeMs = 250.0f;
+    float delayMsL    = 250.0f;
+    float delayMsR    = 250.0f;
     float feedback    = 0.3f;
     float wetDry      = 0.5f;
     bool  pingPong    = false;
-    float spreadMs    = 0.0f;
     float fbLPHz      = 6000.0f;
     float fbHPHz      = 80.0f;
     float ducking     = 0.0f;

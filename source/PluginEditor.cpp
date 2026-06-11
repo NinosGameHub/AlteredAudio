@@ -120,10 +120,14 @@ void AlteredAudioEditor::paint(juce::Graphics& g)
     g.setColour(AaColor::catDynamics);
     g.fillEllipse(dotX - dotR, dotY - dotR, dotR * 2.f, dotR * 2.f);
 
-    g.setFont(juce::Font(13.0f, juce::Font::bold));
+    const int textX = (int)(dotX + dotR + 6.f);
+    const int textW = kListW - (int)(dotX + dotR + 10.f);
+    g.setFont(juce::Font(12.0f, juce::Font::bold));
     g.setColour(AaColor::textPrimary);
-    g.drawText("ALTERED AUDIO",
-               (int)(dotX + dotR + 6.f), 0, kListW - (int)(dotX + dotR + 10.f), kHeaderH,
+    g.drawText("ALTERED AUDIO", textX, 4, textW, 16, juce::Justification::centredLeft, false);
+    g.setFont(juce::Font(9.5f));
+    g.setColour(AaColor::textSecond);
+    g.drawText("v" + juce::String(JucePlugin_VersionString), textX, 21, textW, 14,
                juce::Justification::centredLeft, false);
 
     // Divider between list and content
