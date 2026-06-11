@@ -121,6 +121,7 @@ Root files:
 | `tokens/effects.css` | Borders, minimal elevation, focus ring, motion, knob geometry, CRT overlays. |
 | `tokens/base.css` | Reset + on-brand body/label/wordmark defaults. |
 | `README.md` | This document. |
+| `HANDOFF.md` | Developer handoff — maps each designed surface to exact tokens, dimensions, and JUCE source files to implement against. |
 | `SKILL.md` | Agent Skills manifest (for Claude Code). |
 
 Foundation specimen cards live in `guidelines/` (Design System tab: **Type**, **Colors**, **Spacing**, **Brand**).
@@ -142,6 +143,8 @@ Components:
 | `ModMatrix` | displays | Modulation routing grid — sources × destinations (backlog #5). |
 
 UI kit — `ui_kits/plugin/` (group **Plugin**): the full interactive window — header, tile list, CRT, swappable detail panels for all 15 modules, preset browser and add-module dialogs.
+
+UI kit — `ui_kits/mastering/` (group **Mastering**): a single-window mastering-assistant dashboard (spectrum analyzer, I/O metering, module cards, loudness + correlation + stereo-field metering, sidechain strip), built from a supplied reference layout in the Altered Audio brand.
 
 ---
 

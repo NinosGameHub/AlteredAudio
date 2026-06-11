@@ -82,19 +82,46 @@ private:
 };
 
 // ============================================================
-//  EQCurveDisplay — log-scale frequency response overlay
+//  EQCurveDisplay — interactive log-scale frequency response
 // ============================================================
 class EQCurveDisplay : public juce::Component, private juce::Timer
 {
 public:
     explicit EQCurveDisplay(AlteredAudioProcessor& p);
-    void paint(juce::Graphics&) override;
+    void paint    (juce::Graphics&) override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp  (const juce::MouseEvent&) override;
+
+    void setSelectedBand(int band);  // 0–7
+    int  getSelectedBand() const { return selectedBand; }
+
+    std::function<void(int)> onBandSelected;  // fired on selection change
+
 private:
     AlteredAudioProcessor& proc;
     struct BandData { bool on = false; int type = 5; float freq = 1000.f, q = 0.7f, gain = 0.f; };
     BandData bands[EQModule::kMaxBands];
+    int  selectedBand = 0;
+    int  dragBand     = -1;
+
     float computeResponseDb(float freqHz) const;
     void  timerCallback() override;
+
+    // coordinate helpers
+    static constexpr float FMIN = 20.f, FMAX = 20000.f, GMAX = 18.f;
+    static constexpr float padL = 8.f, padR = 8.f, padT = 10.f, padB = 18.f;
+    float xForF (float f,  float w) const;
+    float yForG (float db, float h) const;
+    float fForX (float x,  float w) const;
+    float gForY (float y,  float h) const;
+    int   bandAtPos(float x, float y) const;
+
+    // APVTS writers
+    void setBandFreq   (int band, float hz);
+    void setBandGain   (int band, float db);
+    void setBandEnabled(int band, bool on);
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EQCurveDisplay)
 };
 
@@ -117,6 +144,9 @@ private:
     };
     EqBand         bands[kBands];
     EQCurveDisplay curveDisplay;
+    juce::Label    bandLabel;
+
+    void showBand(int idx);
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EQPanel)
 };
 

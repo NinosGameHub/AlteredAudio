@@ -148,6 +148,7 @@ namespace
 EQCurveDisplay::EQCurveDisplay(AlteredAudioProcessor& p) : proc(p)
 {
     startTimerHz(30);
+    setMouseCursor(juce::MouseCursor::CrosshairCursor);
 }
 
 void EQCurveDisplay::timerCallback()
@@ -180,6 +181,144 @@ void EQCurveDisplay::timerCallback()
     if (changed)
         repaint();
 }
+
+// ---- coordinate helpers ----
+
+float EQCurveDisplay::xForF(float f, float w) const
+{
+    const float plotW = w - padL - padR;
+    return padL + (std::log10(juce::jlimit(FMIN, FMAX, f)) - std::log10(FMIN))
+                  / (std::log10(FMAX) - std::log10(FMIN)) * plotW;
+}
+
+float EQCurveDisplay::yForG(float db, float h) const
+{
+    const float plotH = h - padT - padB;
+    return padT + (1.f - (db + GMAX) / (2.f * GMAX)) * plotH;
+}
+
+float EQCurveDisplay::fForX(float x, float w) const
+{
+    const float plotW = w - padL - padR;
+    return std::pow(10.f, std::log10(FMIN)
+                    + ((x - padL) / plotW) * (std::log10(FMAX) - std::log10(FMIN)));
+}
+
+float EQCurveDisplay::gForY(float y, float h) const
+{
+    const float plotH = h - padT - padB;
+    return (1.f - (y - padT) / plotH) * 2.f * GMAX - GMAX;
+}
+
+int EQCurveDisplay::bandAtPos(float x, float y) const
+{
+    const float w = (float)getWidth(), h = (float)getHeight();
+    constexpr float hitR = 12.f;
+    float bestD = hitR;
+    int   found = -1;
+    for (int i = 0; i < EQModule::kMaxBands; ++i)
+    {
+        const float cx = xForF(bands[i].freq, w);
+        const float cy = yForG(bands[i].on ? bands[i].gain : 0.f, h);
+        const float d  = std::hypot(x - cx, y - cy);
+        if (d < bestD) { bestD = d; found = i; }
+    }
+    return found;
+}
+
+// ---- APVTS writers ----
+
+void EQCurveDisplay::setBandFreq(int band, float hz)
+{
+    if (auto* p = proc.getAPVTS().getParameter(ParamID::eqFreq(band + 1)))
+        p->setValueNotifyingHost(p->getNormalisableRange().convertTo0to1(hz));
+}
+
+void EQCurveDisplay::setBandGain(int band, float db)
+{
+    if (auto* p = proc.getAPVTS().getParameter(ParamID::eqGain(band + 1)))
+        p->setValueNotifyingHost(p->getNormalisableRange().convertTo0to1(db));
+}
+
+void EQCurveDisplay::setBandEnabled(int band, bool on)
+{
+    if (auto* p = proc.getAPVTS().getParameter(ParamID::eqEnabled(band + 1)))
+        p->setValueNotifyingHost(on ? 1.0f : 0.0f);
+}
+
+// ---- selection ----
+
+void EQCurveDisplay::setSelectedBand(int band)
+{
+    selectedBand = band;
+    repaint();
+    if (onBandSelected)
+        onBandSelected(band);
+}
+
+// ---- mouse ----
+
+void EQCurveDisplay::mouseDown(const juce::MouseEvent& e)
+{
+    const float mx = (float)e.x, my = (float)e.y;
+    const float w = (float)getWidth(), h = (float)getHeight();
+
+    int hit = bandAtPos(mx, my);
+    if (hit >= 0)
+    {
+        dragBand = hit;
+        setSelectedBand(hit);
+        return;
+    }
+
+    // Click on empty curve area — place a new band
+    const float clickFreq = juce::jlimit(FMIN, FMAX, fForX(mx, w));
+    const float clickGain = juce::jlimit(-GMAX, GMAX, gForY(my, h));
+
+    // Find first disabled band
+    int target = -1;
+    for (int i = 0; i < EQModule::kMaxBands; ++i)
+        if (!bands[i].on) { target = i; break; }
+
+    if (target >= 0)
+    {
+        setBandFreq   (target, clickFreq);
+        setBandGain   (target, clickGain);
+        setBandEnabled(target, true);
+        dragBand = target;
+        setSelectedBand(target);
+    }
+    else
+    {
+        // All bands active — select the nearest one by frequency
+        float bestD = 1e9f;
+        for (int i = 0; i < EQModule::kMaxBands; ++i)
+        {
+            const float d = std::abs(std::log10(bands[i].freq) - std::log10(clickFreq));
+            if (d < bestD) { bestD = d; target = i; }
+        }
+        dragBand = target;
+        setSelectedBand(target);
+    }
+}
+
+void EQCurveDisplay::mouseDrag(const juce::MouseEvent& e)
+{
+    if (dragBand < 0) return;
+    const float w = (float)getWidth(), h = (float)getHeight();
+    const float mx = juce::jlimit(padL, w - padR, (float)e.x);
+    const float my = juce::jlimit(padT, h - padB, (float)e.y);
+
+    setBandFreq(dragBand, juce::jlimit(FMIN, FMAX, fForX(mx, w)));
+    setBandGain(dragBand, juce::jlimit(-GMAX, GMAX, gForY(my, h)));
+}
+
+void EQCurveDisplay::mouseUp(const juce::MouseEvent&)
+{
+    dragBand = -1;
+}
+
+// ---- response curve math ----
 
 float EQCurveDisplay::computeResponseDb(float freqHz) const
 {
@@ -216,48 +355,53 @@ float EQCurveDisplay::computeResponseDb(float freqHz) const
     return juce::jlimit(-18.0f, 18.0f, total);
 }
 
+// ---- paint ----
+
 void EQCurveDisplay::paint(juce::Graphics& g)
 {
     const auto  bounds = getLocalBounds().toFloat();
     const float w      = bounds.getWidth();
     const float h      = bounds.getHeight();
-    constexpr float padL = 8.f, padR = 8.f, padT = 10.f, padB = 18.f;
     const float plotW  = w - padL - padR;
     const float plotH  = h - padT - padB;
 
     g.setColour(AaColor::crtBg);
     g.fillRoundedRectangle(bounds, 4.0f);
 
-    const float FMIN = 20.f, FMAX = 20000.f, GMAX = 18.f;
     const float logFMin = std::log10(FMIN), logFMax = std::log10(FMAX);
 
-    const auto xF = [&](float f) { return padL + (std::log10(f) - logFMin) / (logFMax - logFMin) * plotW; };
-    const auto yG = [&](float db) { return padT + (1.f - (db + GMAX) / (2.f * GMAX)) * plotH; };
+    // Selected band frequency guide line
+    if (selectedBand >= 0)
+    {
+        const float selX = xForF(bands[selectedBand].freq, w);
+        g.setColour(AaColor::catFilterEQ.withAlpha(0.18f));
+        g.drawVerticalLine((int)selX, padT, padT + plotH);
+    }
 
     // Freq grid
     for (float f : { 20.f,50.f,100.f,200.f,500.f,1000.f,2000.f,5000.f,10000.f,20000.f })
     {
         g.setColour(AaColor::crtAmber.withAlpha(0.09f));
-        g.drawVerticalLine((int)xF(f), padT, padT + plotH);
+        g.drawVerticalLine((int)xForF(f, w), padT, padT + plotH);
     }
     // dB grid
     for (float db : { -12.f,-6.f,0.f,6.f,12.f })
     {
         g.setColour(db == 0.f ? AaColor::crtAmber.withAlpha(0.28f)
                               : AaColor::crtAmber.withAlpha(0.09f));
-        g.drawHorizontalLine((int)yG(db), padL, padL + plotW);
+        g.drawHorizontalLine((int)yForG(db, h), padL, padL + plotW);
     }
 
     // Response curve (200 points)
     juce::Path fill, line;
-    const float zeroY = yG(0.f);
+    const float zeroY = yForG(0.f, h);
     for (int i = 0; i <= 200; ++i)
     {
         const float t  = (float)i / 200.f;
         const float f  = std::pow(10.f, logFMin + t * (logFMax - logFMin));
         const float db = computeResponseDb(f);
         const float x  = padL + t * plotW;
-        const float y  = yG(db);
+        const float y  = yForG(db, h);
         if (i == 0) { fill.startNewSubPath(x, y); line.startNewSubPath(x, y); }
         else        { fill.lineTo(x, y);           line.lineTo(x, y); }
     }
@@ -270,21 +414,46 @@ void EQCurveDisplay::paint(juce::Graphics& g)
     g.setColour(AaColor::catFilterEQ);
     g.strokePath(line, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved));
 
-    // Band handles
+    // Band handles (selected on top, so draw unselected first)
     g.setFont(juce::Font(8.0f));
-    for (int i = 0; i < EQModule::kMaxBands; ++i)
+    for (int pass = 0; pass < 2; ++pass)
     {
-        const auto& b  = bands[i];
-        const float f  = juce::jlimit(FMIN, FMAX, b.freq);
-        const float db = b.on ? juce::jlimit(-GMAX, GMAX, b.gain) : 0.f;
-        const float cx = xF(f), cy = yG(db);
-        const float r  = 7.f;
-        g.setColour(b.on ? AaColor::catFilterEQ : AaColor::inactive);
-        g.fillEllipse(cx - r, cy - r, r * 2.f, r * 2.f);
-        g.setColour(juce::Colours::white);
-        g.drawText(juce::String(i + 1),
-                   juce::Rectangle<float>(cx - r, cy - r + 1.f, r * 2.f, r * 2.f),
-                   juce::Justification::centred);
+        for (int i = 0; i < EQModule::kMaxBands; ++i)
+        {
+            const bool isSel = (i == selectedBand);
+            if (pass == 0 && isSel)  continue;
+            if (pass == 1 && !isSel) continue;
+
+            const auto& b  = bands[i];
+            const float cx = xForF(b.freq, w);
+            const float cy = yForG(b.on ? b.gain : 0.f, h);
+
+            if (isSel)
+            {
+                // outer glow ring
+                g.setColour(AaColor::catFilterEQ.withAlpha(0.35f));
+                g.fillEllipse(cx - 13.f, cy - 13.f, 26.f, 26.f);
+                // filled circle
+                g.setColour(b.on ? AaColor::catFilterEQ : AaColor::inactive);
+                g.fillEllipse(cx - 9.f, cy - 9.f, 18.f, 18.f);
+                g.setColour(juce::Colours::white);
+                g.setFont(juce::Font(9.0f, juce::Font::bold));
+                g.drawText(juce::String(i + 1),
+                           juce::Rectangle<float>(cx - 9.f, cy - 9.f + 1.f, 18.f, 18.f),
+                           juce::Justification::centred);
+            }
+            else
+            {
+                const float r = b.on ? 7.f : 5.f;
+                g.setColour(b.on ? AaColor::catFilterEQ.withAlpha(0.6f) : AaColor::inactive);
+                g.fillEllipse(cx - r, cy - r, r * 2.f, r * 2.f);
+                g.setColour(juce::Colours::white.withAlpha(0.7f));
+                g.setFont(juce::Font(8.0f));
+                g.drawText(juce::String(i + 1),
+                           juce::Rectangle<float>(cx - r, cy - r + 1.f, r * 2.f, r * 2.f),
+                           juce::Justification::centred);
+            }
+        }
     }
 
     // Freq labels
@@ -293,7 +462,7 @@ void EQCurveDisplay::paint(juce::Graphics& g)
     for (auto [f, lbl] : std::initializer_list<std::pair<float,const char*>>{
             {20,"20"},{100,"100"},{1000,"1k"},{10000,"10k"},{20000,"20k"}})
     {
-        g.drawText(lbl, juce::Rectangle<float>(xF(f) - 16.f, h - padB + 2.f, 32.f, 12.f),
+        g.drawText(lbl, juce::Rectangle<float>(xForF(f, w) - 16.f, h - padB + 2.f, 32.f, 12.f),
                    juce::Justification::centred);
     }
 }
@@ -413,12 +582,17 @@ EQPanel::EQPanel(AlteredAudioProcessor& p)
 {
     addAndMakeVisible(curveDisplay);
 
+    bandLabel.setFont(juce::Font(11.0f, juce::Font::bold));
+    bandLabel.setColour(juce::Label::textColourId, AaColor::catFilterEQ);
+    bandLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(bandLabel);
+
     const juce::StringArray types { "LowPass","HighPass","BandPass","Notch",
                                     "AllPass","Peak","LowShelf","HighShelf" };
     for (int i = 0; i < kBands; ++i)
     {
         const int n = i + 1;
-        bands[i].enableBtn.setButtonText("B" + juce::String(n));
+        bands[i].enableBtn.setButtonText("ACTIVE");
         bands[i].enableBtn.setClickingTogglesState(true);
         addAndMakeVisible(bands[i].enableBtn);
         bands[i].enableAttach =
@@ -430,43 +604,63 @@ EQPanel::EQPanel(AlteredAudioProcessor& p)
         makeKnob (bands[i].qKnob,     ParamID::eqQ(n),     "Q");
         makeKnob (bands[i].gainKnob,  ParamID::eqGain(n),  "GAIN");
     }
+
+    curveDisplay.onBandSelected = [this](int idx) { showBand(idx); };
+    showBand(0);
+}
+
+void EQPanel::showBand(int idx)
+{
+    bandLabel.setText("BAND " + juce::String(idx + 1), juce::dontSendNotification);
+    for (int i = 0; i < kBands; ++i)
+    {
+        const bool vis = (i == idx);
+        bands[i].enableBtn.setVisible(vis);
+        bands[i].typeCombo.label.setVisible(vis);
+        bands[i].typeCombo.box.setVisible(vis);
+        bands[i].freqKnob.label.setVisible(vis);
+        bands[i].freqKnob.slider.setVisible(vis);
+        bands[i].qKnob.label.setVisible(vis);
+        bands[i].qKnob.slider.setVisible(vis);
+        bands[i].gainKnob.label.setVisible(vis);
+        bands[i].gainKnob.slider.setVisible(vis);
+    }
 }
 
 void EQPanel::resized()
 {
     ModulePanel::resized();
-    const auto area    = contentArea();
-    constexpr int curveH = 170, gap = 6;
+    const auto area = contentArea();
+    const int  ax = area.getX(), ay = area.getY(), aw = area.getWidth(), ah = area.getHeight();
 
-    curveDisplay.setBounds(area.getX(), area.getY(), area.getWidth(), curveH);
+    // Reserve space for controls: label row + combo row + knob row
+    constexpr int labelRowH = 26;
+    constexpr int comboRowH = kLabelH + kComboH;
+    constexpr int knobRowH  = kLabelH + kKnobH;
+    constexpr int ctrlTotal = labelRowH + 6 + comboRowH + 6 + knobRowH;
 
-    const int  bandAreaY = area.getY() + curveH + gap;
-    const int  bandAreaH = area.getHeight() - curveH - gap;
-    const int  bandW     = area.getWidth() / 4;
-    const int  rowH      = bandAreaH / 2;
+    const int curveH = juce::jmax(120, ah - 8 - ctrlTotal);
+    const int ctrlY  = ay + curveH + 8;
+
+    curveDisplay.setBounds(ax, ay, aw, curveH);
+
+    // Band label + enable toggle
+    bandLabel.setBounds(ax, ctrlY, 100, labelRowH);
+    const int comboW  = 150;
+    const int knobsX  = ax + comboW + 12;
+    const int knobsW  = aw - comboW - 12;
+    const int comboY  = ctrlY + labelRowH + 6;
+    const int knobY   = comboY + comboRowH + 6;
 
     for (int i = 0; i < kBands; ++i)
     {
-        const int col = i % 4;
-        const int row = i / 4;
-        const int bx  = area.getX() + col * bandW;
-        const int by  = bandAreaY + row * rowH;
-        const int bw  = bandW - 4;
+        bands[i].enableBtn.setBounds(ax + aw - 80, ctrlY, 80, labelRowH);
 
-        bands[i].enableBtn.setBounds(bx, by + 2, 50, 20);
+        bands[i].typeCombo.label.setBounds(ax, comboY,           comboW, kLabelH);
+        bands[i].typeCombo.box.setBounds  (ax, comboY + kLabelH, comboW, kComboH);
 
-        const int comboY = by + 26;
-        bands[i].typeCombo.label.setBounds(bx, comboY,           bw, kLabelH);
-        bands[i].typeCombo.box.setBounds  (bx, comboY + kLabelH, bw, kComboH);
-
-        const int knobY = comboY + kLabelH + kComboH + 4;
-        const int kw    = bw / 3;
-        bands[i].freqKnob.label.setBounds (bx,          knobY,           kw - 2, kLabelH);
-        bands[i].freqKnob.slider.setBounds(bx,          knobY + kLabelH, kw - 2, kKnobH);
-        bands[i].qKnob.label.setBounds    (bx + kw,     knobY,           kw - 2, kLabelH);
-        bands[i].qKnob.slider.setBounds   (bx + kw,     knobY + kLabelH, kw - 2, kKnobH);
-        bands[i].gainKnob.label.setBounds (bx + kw * 2, knobY,           kw - 2, kLabelH);
-        bands[i].gainKnob.slider.setBounds(bx + kw * 2, knobY + kLabelH, kw - 2, kKnobH);
+        Knob* krow[] = { &bands[i].freqKnob, &bands[i].qKnob, &bands[i].gainKnob };
+        placeKnobRow(krow, 3, knobsX, knobY, knobsW);
     }
 }
 
