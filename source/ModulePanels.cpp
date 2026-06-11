@@ -474,6 +474,7 @@ void EQCurveDisplay::paint(juce::Graphics& g)
 GRMeter::GRMeter() { startTimerHz(30); }
 
 void GRMeter::setSource(std::function<float()> fn) { getGRFn = std::move(fn); }
+void GRMeter::setScale (float maxDb) { maxGrDb = maxDb; }
 
 void GRMeter::timerCallback()
 {
@@ -501,47 +502,69 @@ void GRMeter::timerCallback()
 
 void GRMeter::paint(juce::Graphics& g)
 {
-    const auto  b    = getLocalBounds().toFloat();
-    const float w    = b.getWidth();
-    const float h    = b.getHeight();
-    constexpr float GR_MAX = 24.f;
-    const float barX = w * 0.25f, barW = w * 0.50f;
-    const float barTop = 14.f, barH = h - barTop - 26.f;
+    const float w = (float)getWidth();
 
-    // Background
-    g.setColour(AaColor::crtBg);
-    g.fillRoundedRectangle(b, 3.0f);
-
-    // Track
-    g.setColour(AaColor::surfaceAlt);
-    g.fillRoundedRectangle(barX, barTop, barW, barH, 2.0f);
-
-    // GR fill (downward from top)
-    const float grFrac = juce::jlimit(0.f, 1.f, -currentDb / GR_MAX);
-    if (grFrac > 0.001f)
-    {
-        g.setColour(grFrac > 0.6f ? juce::Colour(0xFFD44C00) : AaColor::catDynamics);
-        g.fillRoundedRectangle(barX, barTop, barW, grFrac * barH, 2.0f);
-    }
-
-    // Peak hold
-    if (peakDb < -0.5f)
-    {
-        const float peakFrac = juce::jlimit(0.f, 1.f, -peakDb / GR_MAX);
-        g.setColour(AaColor::catDynamics.brighter(0.5f));
-        g.fillRect(barX, barTop + peakFrac * barH - 1.f, barW, 2.f);
-    }
-
-    // Labels
-    g.setFont(juce::Font(9.0f));
+    // Header row: "GAIN REDUCTION" label + live dB value
+    constexpr float hdrH = 14.f;
+    const juce::Font mono { juce::Font::getDefaultMonospacedFontName(), 9.0f, juce::Font::plain };
+    g.setFont(mono);
     g.setColour(AaColor::textSecond);
-    g.drawText("GR", b.withTrimmedTop(4.f).withHeight(10.f), juce::Justification::centred);
-    if (-currentDb > 0.5f)
+    g.drawText("GAIN REDUCTION", 0, 0, (int)w - 64, (int)hdrH,
+               juce::Justification::centredLeft, false);
+
+    if (-currentDb > 0.1f)
     {
         g.setColour(AaColor::catDynamics);
-        g.drawText(juce::String((int)-currentDb) + "dB",
-                   b.withTrimmedTop(h - 14.f).withHeight(12.f),
-                   juce::Justification::centred);
+        g.drawText(juce::String(-currentDb, 1) + " dB",
+                   (int)(w - 62), 0, 62, (int)hdrH,
+                   juce::Justification::centredRight, false);
+    }
+
+    // Horizontal bar
+    constexpr float barY = hdrH + 2.f, barH = 16.f;
+
+    g.setColour(AaColor::crtBg);
+    g.fillRoundedRectangle(0.f, barY, w, barH, 3.f);
+
+    // dB scale gridlines inside track
+    for (float db = 0.f; db <= maxGrDb; db += maxGrDb / 4.f)
+    {
+        const float gx = w - (db / maxGrDb) * w;
+        g.setColour(AaColor::crtAmber.withAlpha(0.15f));
+        g.fillRect(gx, barY + 2.f, 1.f, barH - 4.f);
+    }
+
+    // GR fill — grows from right edge leftward, amber→catDynamics gradient
+    const float grFrac = juce::jlimit(0.f, 1.f, -currentDb / maxGrDb);
+    if (grFrac > 0.001f)
+    {
+        const float fillW = grFrac * w;
+        juce::ColourGradient grad(AaColor::crtAmber,    w - fillW, barY,
+                                  AaColor::catDynamics,  w,         barY, false);
+        g.setGradientFill(grad);
+        g.fillRoundedRectangle(w - fillW, barY, fillW, barH, 3.f);
+    }
+
+    // Peak hold tick — 1.5px white line
+    if (peakDb < -0.2f)
+    {
+        const float px = w - juce::jlimit(0.f, 1.f, -peakDb / maxGrDb) * w;
+        g.setColour(juce::Colours::white.withAlpha(0.85f));
+        g.fillRect(px - 0.75f, barY, 1.5f, barH);
+    }
+
+    // dB scale labels below bar
+    constexpr float scaleY = barY + barH + 2.f;
+    g.setColour(AaColor::textSecond);
+    g.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 8.0f, juce::Font::plain));
+    const int steps = (int)(maxGrDb / 6.f);
+    for (int s = 0; s <= steps; ++s)
+    {
+        const float db = s * 6.f;
+        const float gx = w - (db / maxGrDb) * w;
+        g.drawText(juce::String((int)db),
+                   (int)(gx - 10), (int)scaleY, 20, 10,
+                   juce::Justification::centred, false);
     }
 }
 
@@ -815,20 +838,19 @@ CompressorPanel::CompressorPanel(AlteredAudioProcessor& p)
 void CompressorPanel::resized()
 {
     ModulePanel::resized();
-    const auto area   = contentArea();
-    const int  x      = area.getX(), y = area.getY();
-    constexpr int meterW = 44, meterGap = 8;
-    const int  knobW  = area.getWidth() - meterW - meterGap;
+    const auto area = contentArea();
+    const int  x = area.getX(), y = area.getY(), w = area.getWidth();
 
-    grMeter.setBounds(area.getRight() - meterW, y, meterW, area.getHeight());
+    grMeter.setBounds(x, y, w, GRMeter::kHeight);
+    const int knobY = y + GRMeter::kHeight + 8;
 
     Knob* row1[] = { &threshKnob, &ratioKnob, &attackKnob, &releaseKnob,
                      &kneeKnob, &makeupKnob, &rmsPeakKnob };
-    placeKnobRow(row1, 7, x, y, knobW);
+    placeKnobRow(row1, 7, x, knobY, w);
 
     Knob* row2[] = { &autoRelKnob, &satKnob, &scHPKnob, &scLPKnob,
                      &stereoLinkKnob, &mixKnob, &lookaheadKnob };
-    placeKnobRow(row2, 7, x, y + kRowH + 12, knobW);
+    placeKnobRow(row2, 7, x, knobY + kRowH + 12, w);
 }
 
 // ============================================================
@@ -864,6 +886,7 @@ LimiterPanel::LimiterPanel(AlteredAudioProcessor& p)
         if (auto* m = p.getLimiterModule()) return m->getGainReductionDb();
         return 0.0f;
     });
+    grMeter.setScale(12.f);
     addAndMakeVisible(grMeter);
 
     makeKnob(ceilingKnob, ParamID::limCeiling, "CEILING (dB)");
@@ -874,12 +897,12 @@ void LimiterPanel::resized()
 {
     ModulePanel::resized();
     const auto area = contentArea();
-    constexpr int meterW = 44, meterGap = 8;
+    const int  x = area.getX(), y = area.getY(), w = area.getWidth();
 
-    grMeter.setBounds(area.getRight() - meterW, area.getY(), meterW, area.getHeight());
+    grMeter.setBounds(x, y, w, GRMeter::kHeight);
 
     Knob* row[] = { &ceilingKnob, &releaseKnob };
-    placeKnobRow(row, 2, area.getX(), area.getY(), area.getWidth() / 2);
+    placeKnobRow(row, 2, x, y + GRMeter::kHeight + 8, w / 2);
 }
 
 // ============================================================

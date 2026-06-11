@@ -6,7 +6,8 @@
 #include "CRTDisplay.h"
 #include "ModulePanels.h"
 
-class AlteredAudioEditor : public juce::AudioProcessorEditor
+class AlteredAudioEditor : public juce::AudioProcessorEditor,
+                           private juce::Timer
 {
 public:
     explicit AlteredAudioEditor(AlteredAudioProcessor&);
@@ -20,13 +21,21 @@ private:
 
     AaLookAndFeel laf;
 
-    juce::Label    titleLabel;
+    // Header bar controls
+    juce::TextButton prevPresetBtn { "<" };
+    juce::Label      presetLabel;
+    juce::TextButton nextPresetBtn { ">" };
+    juce::TextButton stBtn         { "ST" };
+    juce::TextButton msBtn         { "M/S" };
+
     ModuleTileList moduleTileList;
     CRTDisplay     crtDisplay;
 
     std::unique_ptr<ModulePanel> currentPanel;
 
     void showModulePanel(int moduleIdx);
+    void updateChannelModeButtons();
+    void timerCallback() override;
     juce::Rectangle<int> getPanelBounds() const;
 
     // Layout constants

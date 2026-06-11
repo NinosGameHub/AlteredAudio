@@ -7,10 +7,35 @@ AlteredAudioEditor::AlteredAudioEditor(AlteredAudioProcessor& p)
 {
     setLookAndFeel(&laf);
 
-    titleLabel.setText("ALTERED AUDIO", juce::dontSendNotification);
-    titleLabel.setFont(juce::Font(13.0f, juce::Font::bold));
-    titleLabel.setColour(juce::Label::textColourId, AaColor::textPrimary);
-    addAndMakeVisible(titleLabel);
+    // Preset transport
+    for (auto* btn : { &prevPresetBtn, &nextPresetBtn })
+    {
+        btn->setColour(juce::TextButton::buttonColourId,  AaColor::surfaceAlt);
+        btn->setColour(juce::TextButton::textColourOffId, AaColor::textSecond);
+        addAndMakeVisible(*btn);
+    }
+    presetLabel.setText("Default", juce::dontSendNotification);
+    presetLabel.setJustificationType(juce::Justification::centred);
+    presetLabel.setFont(juce::Font(12.0f));
+    presetLabel.setColour(juce::Label::backgroundColourId, AaColor::bg);
+    presetLabel.setColour(juce::Label::outlineColourId,    AaColor::border);
+    presetLabel.setColour(juce::Label::textColourId,       AaColor::textPrimary);
+    addAndMakeVisible(presetLabel);
+
+    // Channel mode segmented toggle
+    stBtn.setClickingTogglesState(false);
+    msBtn.setClickingTogglesState(false);
+    stBtn.onClick = [this]() {
+        processorRef.setChannelMode(ChannelMode::Stereo);
+        updateChannelModeButtons();
+    };
+    msBtn.onClick = [this]() {
+        processorRef.setChannelMode(ChannelMode::MidSide);
+        updateChannelModeButtons();
+    };
+    addAndMakeVisible(stBtn);
+    addAndMakeVisible(msBtn);
+    updateChannelModeButtons();
 
     addAndMakeVisible(moduleTileList);
     moduleTileList.onModuleSelected = [this](int idx) { showModulePanel(idx); };
@@ -31,16 +56,39 @@ AlteredAudioEditor::AlteredAudioEditor(AlteredAudioProcessor& p)
 
     addAndMakeVisible(crtDisplay);
 
-    // Open the default module
     showModulePanel(moduleTileList.getSelectedModule());
 
     setResizable(false, false);
     setSize(kWindowW, kWindowH);
+    startTimerHz(10);
 }
 
 AlteredAudioEditor::~AlteredAudioEditor()
 {
+    stopTimer();
     setLookAndFeel(nullptr);
+}
+
+void AlteredAudioEditor::timerCallback()
+{
+    // Keep channel mode buttons in sync if changed from outside
+    updateChannelModeButtons();
+}
+
+void AlteredAudioEditor::updateChannelModeButtons()
+{
+    const bool isStereo = (processorRef.getChannelMode() == ChannelMode::Stereo);
+
+    // Selected: catDynamics fill + white text; unselected: surfaceAlt + textSecond
+    stBtn.setColour(juce::TextButton::buttonColourId,
+                    isStereo ? AaColor::catDynamics : AaColor::surfaceAlt);
+    stBtn.setColour(juce::TextButton::textColourOffId,
+                    isStereo ? juce::Colours::white : AaColor::textSecond);
+
+    msBtn.setColour(juce::TextButton::buttonColourId,
+                    !isStereo ? AaColor::catDynamics : AaColor::surfaceAlt);
+    msBtn.setColour(juce::TextButton::textColourOffId,
+                    !isStereo ? juce::Colours::white : AaColor::textSecond);
 }
 
 void AlteredAudioEditor::showModulePanel(int moduleIdx)
@@ -61,31 +109,56 @@ void AlteredAudioEditor::paint(juce::Graphics& g)
 {
     g.fillAll(AaColor::bg);
 
-    // Header bar
+    // Header fill + bottom border
     g.setColour(AaColor::surface);
     g.fillRect(0, 0, kWindowW, kHeaderH);
     g.setColour(AaColor::border);
     g.fillRect(0, kHeaderH - 1, kWindowW, 1);
 
-    // Divider between left list and right content
+    // Left block — brand dot + wordmark
+    const float dotX = 14.f, dotY = (float)kHeaderH * 0.5f, dotR = 3.5f;
+    g.setColour(AaColor::catDynamics);
+    g.fillEllipse(dotX - dotR, dotY - dotR, dotR * 2.f, dotR * 2.f);
+
+    g.setFont(juce::Font(13.0f, juce::Font::bold));
+    g.setColour(AaColor::textPrimary);
+    g.drawText("ALTERED AUDIO",
+               (int)(dotX + dotR + 6.f), 0, kListW - (int)(dotX + dotR + 10.f), kHeaderH,
+               juce::Justification::centredLeft, false);
+
+    // Divider between list and content
     g.setColour(AaColor::border);
     g.fillRect(kListW - 1, kHeaderH, 1, kWindowH - kHeaderH);
 
-    // Thin line below CRT display
-    g.setColour(AaColor::border);
+    // CRT bottom border
     g.fillRect(kListW, kHeaderH + kCRTH, kWindowW - kListW, 1);
 }
 
 void AlteredAudioEditor::resized()
 {
-    titleLabel.setBounds(kListW + 12, 0, 240, kHeaderH);
-
     moduleTileList.setBounds(0, kHeaderH, kListW - 1, kWindowH - kHeaderH);
-
     crtDisplay.setBounds(kListW, kHeaderH, kWindowW - kListW, kCRTH);
 
     if (currentPanel)
         currentPanel->setBounds(getPanelBounds());
+
+    // Header controls layout (right section: kListW → kWindowW)
+    constexpr int cy       = (kHeaderH - 24) / 2;  // vertical center for 24px-tall items
+    constexpr int btnW     = 24;
+    constexpr int presetW  = 180;
+    constexpr int modeW    = 40;
+    constexpr int modeGap  = 0;
+
+    // Preset transport — left side of the right header section
+    const int presetX = kListW + 16;
+    prevPresetBtn.setBounds(presetX,              cy, btnW,    24);
+    presetLabel  .setBounds(presetX + btnW + 4,   cy, presetW, 24);
+    nextPresetBtn.setBounds(presetX + btnW + 4 + presetW + 4, cy, btnW, 24);
+
+    // Channel mode — right-aligned before right edge
+    const int modeRightX = kWindowW - 16;
+    msBtn.setBounds(modeRightX - modeW,              cy, modeW, 24);
+    stBtn.setBounds(modeRightX - modeW * 2 - modeGap, cy, modeW, 24);
 }
 
 juce::Rectangle<int> AlteredAudioEditor::getPanelBounds() const

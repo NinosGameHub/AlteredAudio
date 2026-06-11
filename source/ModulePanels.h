@@ -209,19 +209,23 @@ private:
 };
 
 // ============================================================
-//  GRMeter — gain-reduction bar for dynamics modules
+//  GRMeter — horizontal gain-reduction bar for dynamics modules
 // ============================================================
 class GRMeter : public juce::Component, private juce::Timer
 {
 public:
     GRMeter();
     void setSource(std::function<float()> fn);
+    void setScale (float maxGrDb);   // default 18dB; use 12 for Limiter
     void paint(juce::Graphics&) override;
+
+    static constexpr int kHeight = 42;  // total component height to allocate
 private:
     std::function<float()> getGRFn;
-    float currentDb       = 0.0f;
-    float peakDb          = 0.0f;
-    float peakHoldSecs    = 0.0f;
+    float maxGrDb      = 18.0f;
+    float currentDb    = 0.0f;
+    float peakDb       = 0.0f;
+    float peakHoldSecs = 0.0f;
     void  timerCallback() override;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GRMeter)
 };
