@@ -56,7 +56,7 @@
 
   <script type="text/babel">
   const AA = window.AlteredAudioDesignSystem_3ace71;
-  const { Knob, Select, ToggleSwitch, Button, ModuleTile, Meter, CRTDisplay } = AA;
+  const { Knob, Select, ToggleSwitch, Button, ModuleTile, Meter, CRTDisplay, EQCurve, ModMatrix } = AA;
 
   /* category color tokens (match ModuleTileList::moduleColor) */
   const CAT = {
@@ -88,7 +88,7 @@
     { id: "WAVE", title: "WAVESHAPER", cat: "dynamics",
       combos: [{ label: "ALGORITHM", value: "TanhSat", options: ["SoftClip","HardClip","TanhSat","BitCrush","FoldBack"] }],
       rows: [[k("DRIVE","6.0 dB",0.50), k("WET/DRY","100%",1.0), k("BIT DEPTH","16",0.66)]] },
-    { id: "COMP", title: "COMPRESSOR", cat: "dynamics",
+    { id: "COMP", title: "COMPRESSOR", cat: "dynamics", gr: true,
       rows: [
         [k("THRESH","-18 dB",0.40), k("RATIO","4.0:1",0.45), k("ATTACK","12 ms",0.24), k("RELEASE","120 ms",0.40), k("KNEE","6 dB",0.30), k("MAKEUP","+3 dB",0.60), k("PEAK/RMS","50%",0.50)],
         [k("AUTO REL","Off",0.0), k("SAT","15%",0.15), k("SC HP","40 Hz",0.10), k("SC LP","18 kHz",0.95), k("ST LINK","100%",1.0), k("MIX","100%",1.0), k("LOOKAHEAD","2 ms",0.20)],
@@ -102,7 +102,7 @@
       rows: [[k("CEILING","-0.3 dB",0.92), k("KNEE","2 dB",0.20), k("MIX","100%",1.0), k("BIAS","0",0.5), k("EMPH FREQ","3.0 kHz",0.55), k("EMPH dB","0 dB",0.5)]] },
     { id: "TRANS", title: "TRANSIENT SHAPER", cat: "dynamics",
       rows: [[k("ATTACK","+6",0.70), k("SUSTAIN","-3",0.40), k("SPEED","50%",0.50), k("ST LINK","100%",1.0), k("WET/DRY","100%",1.0)]] },
-    { id: "LIM", title: "LIMITER", cat: "dynamics",
+    { id: "LIM", title: "LIMITER", cat: "dynamics", gr: true,
       rows: [[k("CEILING (dB)","-0.3 dB",0.92), k("RELEASE (ms)","50 ms",0.30)]] },
     { id: "GATE", title: "GATE", cat: "dynamics",
       rows: [[k("THRESHOLD","-40 dB",0.25), k("ATTACK","1 ms",0.05), k("RELEASE","80 ms",0.35), k("RANGE","-60 dB",0.20)]] },
@@ -128,43 +128,108 @@
   }
 
   /* ---------- detail-panel pieces ---------- */
-  function KnobRow({ knobs, active, accent }) {
+  function KnobRow({ knobs, active, accent, moduleId, knobMods, onCtx }) {
     return (
       <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
-        {knobs.map((kn, i) => (
-          <div key={i} style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-            <Knob size={62} label={kn.label} value={kn.v} min={0} max={1} display={kn.display} disabled={!active} showArc accent={accent} />
-          </div>
-        ))}
+        {knobs.map((kn, i) => {
+          const mkey = moduleId + ":" + kn.label;
+          return (
+            <div key={i} style={{ flex: 1, display: "flex", justifyContent: "center" }}
+              onContextMenu={(e) => { e.preventDefault(); onCtx && onCtx(e, mkey); }} title="right-click to assign modulation">
+              <Knob size={62} label={kn.label} value={kn.v} min={0} max={1} display={kn.display}
+                disabled={!active} showArc accent={accent} mods={(knobMods && knobMods[mkey]) || []} />
+            </div>
+          );
+        })}
       </div>
     );
   }
 
   function EqPanel({ active, accent }) {
-    const [bands, setBands] = React.useState([true, true, true, false, false, false, false, false]);
-    const types = ["LowShelf","Peak","Peak","Peak","Peak","Peak","Peak","HighShelf"];
-    const vals = [["80 Hz","0.7","+2"],["240 Hz","1.0","-3"],["1.2k","0.8","+4"],["3.5k","1.2","-2"],["6k","1.0","0"],["8k","0.7","0"],["12k","0.5","0"],["16k","0.7","+1"]];
+    const [bands, setBands] = React.useState([
+      { freq: 80, gain: 2, q: 0.7, type: "LowShelf", on: true },
+      { freq: 240, gain: -3, q: 1.0, type: "Peak", on: true },
+      { freq: 1200, gain: 4, q: 0.8, type: "Peak", on: true },
+      { freq: 3500, gain: -2, q: 1.2, type: "Peak", on: false },
+      { freq: 6000, gain: 0, q: 1.0, type: "Peak", on: false },
+      { freq: 8000, gain: 0, q: 0.7, type: "Peak", on: false },
+      { freq: 12000, gain: 0, q: 0.5, type: "Peak", on: false },
+      { freq: 16000, gain: 1, q: 0.7, type: "HighShelf", on: false },
+    ]);
+    const setBand = (i, patch) => setBands((bs) => bs.map((b, j) => (j === i ? { ...b, ...patch } : b)));
+    const fmtF = (f) => (f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 0 : 1) + "k" : Math.round(f) + " Hz");
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "14px 12px" }}>
-        {bands.map((on, i) => (
-          <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <ToggleSwitch checked={on && active} disabled={!active} onChange={(v) => { const n = [...bands]; n[i] = v; setBands(n); }} />
-              <span style={{ fontSize: "var(--fs-10)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--tracking-label)", color: "var(--text-muted)" }}>B{i + 1}</span>
-              <span style={{ fontSize: "var(--fs-9)", color: "var(--text-muted)" }}>{types[i]}</span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <EQCurve bands={bands} onChange={setBands} width={820} height={180} accent={accent} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "14px 12px" }}>
+          {bands.map((b, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <ToggleSwitch checked={b.on && active} disabled={!active} onChange={(v) => setBand(i, { on: v })} />
+                <span style={{ fontSize: "var(--fs-10)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--tracking-label)", color: "var(--text-muted)" }}>B{i + 1}</span>
+                <span style={{ fontSize: "var(--fs-9)", color: "var(--text-muted)" }}>{b.type}</span>
+              </div>
+              <div style={{ display: "flex", gap: 2, opacity: b.on ? 1 : 0.45 }}>
+                <Knob size={44} label="F" value={Math.log10(b.freq / 20) / 3} display={fmtF(b.freq)} disabled={!active || !b.on} showArc accent={accent} />
+                <Knob size={44} label="Q" value={Math.min(1, b.q / 4)} display={b.q.toFixed(1)} disabled={!active || !b.on} showArc accent={accent} />
+                <Knob size={44} label="dB" value={(b.gain + 18) / 36} display={(b.gain > 0 ? "+" : "") + b.gain} disabled={!active || !b.on} showArc accent={accent} />
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 2, opacity: on ? 1 : 0.45 }}>
-              <Knob size={44} label="F" value={0.4} display={vals[i][0]} disabled={!active || !on} showArc accent={accent} />
-              <Knob size={44} label="Q" value={0.3} display={vals[i][1]} disabled={!active || !on} showArc accent={accent} />
-              <Knob size={44} label="dB" value={0.5} display={vals[i][2]} disabled={!active || !on} showArc accent={accent} />
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
   }
 
-  function ModuleDetailPanel({ moduleId, active, onToggleActive }) {
+  /* Gain-reduction meter strip for COMP / LIMITER panels (backlog #3).
+     Horizontal bar that fills right-to-left in dynamics-orange, with a dB
+     scale and a held-peak tick. Self-animates a plausible GR signal. */
+  function GRStrip({ active, label = "GAIN REDUCTION", max = 18 }) {
+    const [gr, setGr] = React.useState(0);
+    const peak = React.useRef(0);
+    React.useEffect(() => {
+      if (!active) { setGr(0); peak.current = 0; return; }
+      let raf, t = 0;
+      const tick = () => {
+        t += 0.06;
+        const v = Math.max(0, (0.45 + 0.4 * Math.sin(t * 1.7) * Math.abs(Math.sin(t * 0.6))) * max);
+        peak.current = Math.max(peak.current * 0.992, v);
+        setGr(v);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    }, [active, max]);
+
+    const ticks = [0, 3, 6, 9, 12, 15, 18].filter((d) => d <= max);
+    const pct = (d) => (d / max) * 100;
+    return (
+      <div style={{ marginBottom: 18, opacity: active ? 1 : 0.5 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 5 }}>
+          <span style={{ fontSize: "var(--fs-10)", fontWeight: "var(--fw-semibold)", letterSpacing: "var(--tracking-label)", textTransform: "uppercase", color: "var(--text-muted)" }}>{label}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-10)", color: "var(--cat-dynamics)" }}>-{gr.toFixed(1)} dB</span>
+        </div>
+        <div style={{ position: "relative", height: 16, background: "var(--crt-bg)", borderRadius: "var(--radius-xs)", overflow: "hidden" }}>
+          {/* gridlines */}
+          {ticks.map((d) => (
+            <div key={d} style={{ position: "absolute", top: 0, bottom: 0, left: pct(d) + "%", width: 1, background: "var(--crt-grid)" }} />
+          ))}
+          {/* GR fill (from right edge leftward) */}
+          <div style={{ position: "absolute", top: 2, bottom: 2, right: 0, width: pct(gr) + "%",
+            background: "linear-gradient(90deg, var(--crt-amber), var(--cat-dynamics))", borderRadius: 2 }} />
+          {/* held peak tick */}
+          <div style={{ position: "absolute", top: 1, bottom: 1, right: (pct(peak.current) - 0.4) + "%", width: 1.5, background: "#fff", opacity: 0.85 }} />
+        </div>
+        <div style={{ position: "relative", height: 12, marginTop: 2 }}>
+          {ticks.map((d) => (
+            <span key={d} style={{ position: "absolute", left: pct(d) + "%", transform: "translateX(-50%)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-8)", color: "var(--text-muted)" }}>{d === 0 ? "0" : "-" + d}</span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function ModuleDetailPanel({ moduleId, active, onToggleActive, knobMods, onCtx }) {
     const m = MODULE_BY_ID[moduleId] || MODULES[0];
     const accent = CAT[m.cat] || "var(--accent-primary)";
     return (
@@ -183,7 +248,8 @@
             </div>
           ) : null}
           {m.eq ? <EqPanel active={active} accent={accent} /> : null}
-          {m.rows ? m.rows.map((row, i) => (<KnobRow key={i} knobs={row} active={active} accent={accent} />)) : null}
+          {m.gr ? <GRStrip active={active} max={moduleId === "LIM" ? 12 : 18} label={moduleId === "LIM" ? "GAIN REDUCTION · OUTPUT" : "GAIN REDUCTION"} /> : null}
+          {m.rows ? m.rows.map((row, i) => (<KnobRow key={i} knobs={row} active={active} accent={accent} moduleId={moduleId} knobMods={knobMods} onCtx={onCtx} />)) : null}
           {m.toggles ? (
             <div style={{ display: "flex", gap: 24, marginTop: 4 }}>
               {m.toggles.map((t, i) => (<ToggleSwitch key={i} checked={t.checked && active} disabled={!active} label={t.label} />))}
@@ -195,7 +261,7 @@
   }
 
   /* ---------- chrome ---------- */
-  function PluginHeader({ preset, onPrev, onNext, channels, onChannels, io, bypass, onBypass }) {
+  function PluginHeader({ preset, onPrev, onNext, channels, onChannels, io, bypass, onBypass, onMod }) {
     return (
       <div style={{ height: "var(--h-app-header)", flex: "0 0 auto", display: "flex", alignItems: "center", background: "var(--surface-card)", borderBottom: "var(--border-hairline)" }}>
         <div style={{ width: "var(--w-tile-list)", flex: "0 0 auto", height: "100%", display: "flex", alignItems: "center", paddingLeft: 12, borderRight: "var(--border-hairline)" }}>
@@ -228,6 +294,9 @@
               <Meter value={io[3]} orientation="horizontal" length={42} thickness={4} segments={12} />
             </div>
           </div>
+          <button onClick={onMod} className="aa-iconbtn" title="Modulation matrix" style={{ width: "auto", padding: "0 9px", gap: 5, fontSize: "var(--fs-9)", fontWeight: "var(--fw-semibold)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            <Icon name="git-branch" size={14} /> Mod
+          </button>
           <button onClick={onBypass} className="aa-iconbtn" title="Global bypass" style={{ color: bypass ? "var(--text-muted)" : "var(--accent-primary)", background: bypass ? "var(--surface-page)" : "var(--accent-tint)" }}>
             <Icon name="power" size={16} />
           </button>
@@ -298,12 +367,83 @@
     );
   }
 
+  const MOD_SOURCES = [
+    { id: "lfo1", label: "LFO 1", color: "var(--cat-modulation)" },
+    { id: "lfo2", label: "LFO 2", color: "var(--cat-modulation)" },
+    { id: "env1", label: "ENV 1", color: "var(--cat-dynamics)" },
+    { id: "mac1", label: "MACRO 1", color: "var(--cat-filtereq)" },
+    { id: "mac2", label: "MACRO 2", color: "var(--cat-spatial)" },
+  ];
+  const MOD_DESTS = [
+    { id: "freq", label: "Filter Freq" }, { id: "q", label: "Filter Q" },
+    { id: "drive", label: "Drive" }, { id: "time", label: "Delay Time" },
+    { id: "fb", label: "Feedback" }, { id: "mix", label: "Wet/Dry" },
+    { id: "width", label: "Width" }, { id: "rate", label: "Mod Rate" },
+  ];
+
+  function ModDialog({ open, onClose, values, onChange }) {
+    if (!open) return null;
+    return (
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 20, background: "var(--aa-overlay-scrim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface-card)", borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-dialog)", overflow: "hidden", display: "flex", flexDirection: "column", maxWidth: "92%" }}>
+          <div style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", borderBottom: "var(--border-hairline)" }}>
+            <span style={{ fontSize: "var(--fs-13)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--tracking-label)", color: "var(--text-body)" }}>MODULATION MATRIX</span>
+            <span style={{ marginLeft: 12, fontSize: "var(--fs-9)", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>drag a cell · double-click to clear</span>
+            <button className="aa-iconbtn" onClick={onClose} style={{ marginLeft: "auto" }}><Icon name="x" size={16} /></button>
+          </div>
+          <div style={{ padding: 16, overflow: "auto" }}>
+            <ModMatrix sources={MOD_SOURCES} destinations={MOD_DESTS} values={values} onChange={onChange} cell={40} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function KnobMenu({ menu, onClose, onAssign, onClear }) {
+    if (!menu) return null;
+    return (
+      <div onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }}
+        style={{ position: "fixed", inset: 0, zIndex: 40 }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", left: Math.min(menu.x, 1000 - 180), top: menu.y,
+          width: 168, background: "var(--surface-card)", border: "var(--border-hairline)", borderRadius: "var(--radius-md)",
+          boxShadow: "var(--shadow-menu)", overflow: "hidden", padding: "5px 0" }}>
+          <div style={{ padding: "5px 12px", fontFamily: "var(--font-mono)", fontSize: "var(--fs-8)", letterSpacing: "0.08em", color: "var(--text-muted)" }}>ASSIGN MODULATION</div>
+          {MOD_SOURCES.map((s) => (
+            <div key={s.id} onClick={() => { onAssign(menu.key, s); onClose(); }}
+              style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 12px", cursor: "pointer", fontSize: "var(--fs-12)", color: "var(--text-body)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-sunken)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+              <span style={{ width: 9, height: 9, borderRadius: 2, background: s.color }} />{s.label}
+            </div>
+          ))}
+          <div style={{ height: 1, background: "var(--border-default)", margin: "4px 0" }} />
+          <div onClick={() => { onClear(menu.key); onClose(); }}
+            style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 12px", cursor: "pointer", fontSize: "var(--fs-12)", color: "var(--text-muted)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-sunken)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+            <Icon name="x" size={13} /> Clear modulation
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   /* ---------- app ---------- */
   function App() {
     const [selected, setSelected] = React.useState("CLIP");
     const [presetIdx, setPresetIdx] = React.useState(1);
     const [presetOpen, setPresetOpen] = React.useState(false);
     const [addOpen, setAddOpen] = React.useState(false);
+    const [modOpen, setModOpen] = React.useState(false);
+    const [modVals, setModVals] = React.useState({ "lfo1:freq": 0.62, "env1:drive": -0.45, "mac1:q": 0.3, "lfo2:width": 0.5, "mac2:mix": 0.8 });
+    const [knobMods, setKnobMods] = React.useState({ "COMP:THRESH": [{ sourceId: "env1", color: "var(--cat-dynamics)", depth: -0.35 }], "COMP:MAKEUP": [{ sourceId: "mac1", color: "var(--cat-filtereq)", depth: 0.4 }] });
+    const [knobMenu, setKnobMenu] = React.useState(null);
+    const openKnobMenu = (e, key) => setKnobMenu({ x: e.clientX, y: e.clientY, key });
+    const assignMod = (key, src) => setKnobMods((m) => {
+      const list = (m[key] || []).filter((r) => r.sourceId !== src.id);
+      return { ...m, [key]: [...list, { sourceId: src.id, color: src.color, depth: 0.4 }] };
+    });
+    const clearMods = (key) => setKnobMods((m) => { const n = { ...m }; delete n[key]; return n; });
     const [channels, setChannels] = React.useState("ST");
     const [bypass, setBypass] = React.useState(false);
     const [io, setIo] = React.useState([0.6, 0.55, 0.52, 0.5]);
@@ -333,7 +473,7 @@
           onPrev={() => setPresetIdx((i) => (i + PRESETS.length - 1) % PRESETS.length)}
           onNext={() => setPresetIdx((i) => (i + 1) % PRESETS.length)}
           channels={channels} onChannels={setChannels}
-          io={bypass ? [0, 0, 0, 0] : io} bypass={bypass} onBypass={() => setBypass((b) => !b)} />
+          io={bypass ? [0, 0, 0, 0] : io} bypass={bypass} onBypass={() => setBypass((b) => !b)} onMod={() => setModOpen(true)} />
         <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
           <TileList activeMap={active} selected={selected} onSelect={setSelected} onAdd={() => setAddOpen(true)} />
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
@@ -341,12 +481,14 @@
               <CRTDisplay label={"SPECTRUM · " + PRESETS[presetIdx].toUpperCase()} height={180} live={!bypass} />
             </div>
             <div style={{ flex: 1, minHeight: 0 }}>
-              <ModuleDetailPanel moduleId={selected} active={active[selected] && !bypass} onToggleActive={() => toggle(selected)} />
+              <ModuleDetailPanel moduleId={selected} active={active[selected] && !bypass} onToggleActive={() => toggle(selected)} knobMods={knobMods} onCtx={openKnobMenu} />
             </div>
           </div>
         </div>
         <PresetDialog open={presetOpen} onClose={() => setPresetOpen(false)} current={PRESETS[presetIdx]} onPick={(p) => { setPresetIdx(PRESETS.indexOf(p)); setPresetOpen(false); }} />
         <AddModuleDialog open={addOpen} onClose={() => setAddOpen(false)} onToggle={toggle} activeMap={active} />
+        <ModDialog open={modOpen} onClose={() => setModOpen(false)} values={modVals} onChange={setModVals} />
+        <KnobMenu menu={knobMenu} onClose={() => setKnobMenu(null)} onAssign={assignMod} onClear={clearMods} />
       </div>
     );
   }

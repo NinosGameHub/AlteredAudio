@@ -16,7 +16,7 @@ If the user invokes this skill without any other guidance, ask them what they wa
 - `styles.css` — link this one file to inherit every token; it `@import`s `tokens/*.css`.
 - `tokens/` — colors, typography, spacing, effects, base element defaults.
 - `guidelines/*.card.html` — foundation specimens (colors, type, spacing, brand).
-- `components/` — React primitives (`Knob`, `ToggleSwitch`, `Select`, `Button`, `Card`, `Badge`, `ModuleTile`, `CRTDisplay`, `Meter`), each with a `.d.ts` and `.prompt.md`.
+- `components/` — React primitives (`Knob`, `ToggleSwitch`, `Select`, `Button`, `Card`, `Badge`, `ModuleTile`, `CRTDisplay`, `Meter`, `EQCurve`, `ModMatrix`), each with a `.d.ts` and `.prompt.md`.
 - `ui_kits/plugin/` — interactive recreation of the full plugin window.
 
 ## Non-negotiables

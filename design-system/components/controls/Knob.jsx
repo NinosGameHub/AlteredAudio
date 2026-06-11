@@ -16,6 +16,7 @@ export function Knob({
   display,
   accent = "var(--accent-primary)",
   showArc = false,
+  mods = [],
   disabled = false,
   onChange,
   className = "",
@@ -101,6 +102,25 @@ export function Knob({
         {/* range-marker dots */}
         <circle cx={d0x} cy={d0y} r="1.5" fill="var(--knob-dot)" />
         <circle cx={d1x} cy={d1y} r="1.5" fill="var(--knob-dot)" />
+
+        {/* modulation arcs — each routing draws a thin arc from the current
+           value by its (bipolar) depth, in the source color, just outside
+           the value ring; concentric when multiple sources target the knob */}
+        {!disabled && mods && mods.length ? mods.map((md, i) => {
+          const depth = Math.max(-1, Math.min(1, md.depth || 0));
+          if (Math.abs(depth) < 0.001) return null;
+          const modR = dotR + 3 + i * 3;
+          const tEnd = Math.max(0, Math.min(1, t + depth));
+          const a0 = depth >= 0 ? ang : angleAt(tEnd);
+          const a1 = depth >= 0 ? angleAt(tEnd) : ang;
+          const [ex, ey] = pt(angleAt(tEnd), modR);
+          return (
+            <g key={i}>
+              <path d={arc(a0, a1, modR)} fill="none" stroke={md.color || "var(--cat-modulation)"} strokeWidth="1.6" strokeLinecap="round" opacity="0.95" />
+              <circle cx={ex} cy={ey} r="1.6" fill={md.color || "var(--cat-modulation)"} />
+            </g>
+          );
+        }) : null}
 
         {/* flat cream disc */}
         <circle cx={cx} cy={cy} r={r} fill="var(--knob-body)" stroke="var(--border-default)" strokeWidth="1" />

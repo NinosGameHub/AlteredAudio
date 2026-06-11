@@ -9,4 +9,5 @@
 
 - `disabled` greys the line + disc for a bypassed module.
 - `showArc` adds a value-sweep ring; pass the module's category color via `accent` (e.g. `var(--cat-time)`).
+- `mods` overlays active modulation routings as thin colored arcs from the current value (positive sweeps clockwise, negative counter-clockwise), concentric when multiple sources target the knob: `mods={[{ depth: 0.4, color: 'var(--cat-modulation)' }]}`.
 - Pair with an uppercase `label` and a mono `display` value to match the native panels.

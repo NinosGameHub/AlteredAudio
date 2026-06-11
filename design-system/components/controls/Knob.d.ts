@@ -21,6 +21,9 @@ export interface KnobProps {
   accent?: string;
   /** Draw a category-colored value-sweep ring outside the disc. */
   showArc?: boolean;
+  /** Active modulation routings, drawn as thin colored arcs from the current
+   *  value by each (bipolar) depth — concentric when more than one. */
+  mods?: { depth: number; color?: string }[];
   /** Greys out the line + disc (bypassed module). */
   disabled?: boolean;
   /** Fired on interaction with the current value. */

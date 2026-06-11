@@ -104,7 +104,7 @@ How Altered Audio writes copy — derived from every visible string (`ModulePane
 - **Font:** no webfont in the repo; the plugin uses the host system font. This system uses the native `-apple-system / system-ui` stack plus the OS monospace for numerics — the faithful recreation. Supply a specific typeface if you want guaranteed cross-platform rendering and we'll wire `@font-face`.
 - **Icons:** Lucide (CDN) substituted for the absent icon set — see Iconography.
 - **Logo:** no logo file; the brand mark is the typographic `ALTERED AUDIO` wordmark.
-- **Header controls, preset browser, add-module dialog** are net-new design built from the `ui-design-todo.md` backlog, on-brand — not yet reflected in plugin source. **Still open in the backlog and NOT yet designed here:** EQ curve display, compressor/limiter GR meters in-panel, waveshaper/clipper transfer-curve graphs, the **modulation matrix**, knob modulation arcs + right-click menus, and bypass dimming of the whole panel.
+- **Header controls, preset browser, add-module dialog** are net-new design built from the `ui-design-todo.md` backlog, on-brand — not yet reflected in plugin source. The **EQ curve display** (backlog #2) and **modulation matrix** (backlog #5) are now designed as the `EQCurve` and `ModMatrix` components and wired live into the UI kit (EQ panel + a MOD overlay from the header). **Still open in the backlog and NOT yet designed here:** in-panel compressor/limiter gain-reduction meters, waveshaper/clipper transfer-curve graphs, knob modulation arcs + right-click menus, bypass dimming of the whole panel, and the CRT real-FFT wiring (a C++ task — the visual is done).
 
 ---
 
@@ -138,6 +138,8 @@ Components:
 | `Badge` | surfaces | Small status / count pill. |
 | `CRTDisplay` | displays | Amber phosphor spectrum strip. |
 | `Meter` | displays | Segmented I/O & gain-reduction meter on CRT-black. |
+| `EQCurve` | displays | EQ frequency-response graph with draggable bands (backlog #2). |
+| `ModMatrix` | displays | Modulation routing grid — sources × destinations (backlog #5). |
 
 UI kit — `ui_kits/plugin/` (group **Plugin**): the full interactive window — header, tile list, CRT, swappable detail panels for all 15 modules, preset browser and add-module dialogs.
 

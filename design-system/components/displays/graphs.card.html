@@ -1,0 +1,58 @@
+<!-- @dsCard group="Components" viewport="700x440" name="Graphs — EQ curve & Mod matrix" subtitle="Draggable EQ response and the modulation routing grid" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 24px; background: var(--surface-page); display: flex; flex-direction: column; gap: 22px; }
+  .gl { font-size: var(--fs-10); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; display: block; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+  const { EQCurve, ModMatrix } = window.AlteredAudioDesignSystem_3ace71;
+  function Demo() {
+    const [bands, setBands] = React.useState([
+      { freq: 80, gain: 2, q: 0.7, type: "LowShelf", on: true },
+      { freq: 240, gain: -3, q: 1.0, type: "Peak", on: true },
+      { freq: 1200, gain: 4, q: 0.8, type: "Peak", on: true },
+      { freq: 6000, gain: -2, q: 1.2, type: "Peak", on: true },
+      { freq: 16000, gain: 1, q: 0.7, type: "HighShelf", on: true },
+    ]);
+    const sources = [
+      { id: "lfo1", label: "LFO 1", color: "var(--cat-modulation)" },
+      { id: "lfo2", label: "LFO 2", color: "var(--cat-modulation)" },
+      { id: "env1", label: "ENV 1", color: "var(--cat-dynamics)" },
+      { id: "mac1", label: "MACRO 1", color: "var(--cat-filtereq)" },
+      { id: "mac2", label: "MACRO 2", color: "var(--cat-spatial)" },
+    ];
+    const dests = [
+      { id: "freq", label: "Filter Freq" }, { id: "q", label: "Filter Q" },
+      { id: "drive", label: "Drive" }, { id: "time", label: "Delay Time" },
+      { id: "fb", label: "Feedback" }, { id: "mix", label: "Wet/Dry" },
+      { id: "width", label: "Width" },
+    ];
+    const [vals, setVals] = React.useState({ "lfo1:freq": 0.62, "env1:drive": -0.45, "mac1:q": 0.3, "lfo2:width": 0.5, "mac2:mix": 0.8 });
+    return (
+      <div>
+        <div style={{marginBottom:22}}>
+          <span className="gl">EQ curve — drag a numbered handle</span>
+          <EQCurve bands={bands} onChange={setBands} width={640} height={210} />
+        </div>
+        <div>
+          <span className="gl">Modulation matrix — drag a cell vertically</span>
+          <ModMatrix sources={sources} destinations={dests} values={vals} onChange={setVals} />
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>
