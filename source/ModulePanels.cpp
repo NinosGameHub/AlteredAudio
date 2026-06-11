@@ -581,6 +581,36 @@ void ClipperPanel::resized()
 }
 
 // ============================================================
+//  SpatialPanel
+// ============================================================
+
+SpatialPanel::SpatialPanel(AlteredAudioProcessor& p)
+    : ModulePanel(p, "SPATIAL", ParamID::spatialBypass)
+{
+    makeKnob(widthKnob,    ParamID::spatialWidth,    "WIDTH");
+    makeKnob(panKnob,      ParamID::spatialPan,      "PAN");
+    makeKnob(wetDryKnob,   ParamID::spatialWetDry,   "WET/DRY");
+    makeKnob(rotationKnob, ParamID::spatialRotation, "ROTATION");
+    makeKnob(midGainKnob,  ParamID::spatialMidGain,  "MID GAIN");
+    makeKnob(sideGainKnob, ParamID::spatialSideGain, "SIDE GAIN");
+    makeKnob(bassMonoKnob, ParamID::spatialBassMono, "BASS MONO");
+    makeKnob(haasKnob,     ParamID::spatialHaasMs,   "HAAS (ms)");
+}
+
+void SpatialPanel::resized()
+{
+    ModulePanel::resized();
+    const auto area = contentArea();
+    const int x = area.getX(), y = area.getY(), w = area.getWidth();
+
+    Knob* row1[] = { &widthKnob, &panKnob, &wetDryKnob };
+    placeKnobRow(row1, 3, x, y, w / 2);
+
+    Knob* row2[] = { &rotationKnob, &midGainKnob, &sideGainKnob, &bassMonoKnob, &haasKnob };
+    placeKnobRow(row2, 5, x, y + kRowH + 12, w);
+}
+
+// ============================================================
 //  Factory
 // ============================================================
 
@@ -588,20 +618,21 @@ std::unique_ptr<ModulePanel> createModulePanel(AlteredAudioProcessor& proc, int 
 {
     switch (moduleIdx)
     {
-        case 0:  return std::make_unique<FilterPanel>         (proc);
-        case 1:  return std::make_unique<EQPanel>             (proc);
-        case 2:  return std::make_unique<GainPanel>           (proc);
-        case 3:  return std::make_unique<DelayPanel>          (proc);
-        case 4:  return std::make_unique<ReverbPanel>         (proc);
-        case 5:  return std::make_unique<WaveshaperPanel>     (proc);
-        case 6:  return std::make_unique<CompressorPanel>     (proc);
-        case 7:  return std::make_unique<ClipperPanel>        (proc);
-        case 8:  return std::make_unique<TransientShaperPanel>(proc);
-        case 9:  return std::make_unique<LimiterPanel>        (proc);
+        case  0: return std::make_unique<FilterPanel>         (proc);
+        case  1: return std::make_unique<EQPanel>             (proc);
+        case  2: return std::make_unique<GainPanel>           (proc);
+        case  3: return std::make_unique<DelayPanel>          (proc);
+        case  4: return std::make_unique<ReverbPanel>         (proc);
+        case  5: return std::make_unique<WaveshaperPanel>     (proc);
+        case  6: return std::make_unique<CompressorPanel>     (proc);
+        case  7: return std::make_unique<ClipperPanel>        (proc);
+        case  8: return std::make_unique<TransientShaperPanel>(proc);
+        case  9: return std::make_unique<LimiterPanel>        (proc);
         case 10: return std::make_unique<GatePanel>           (proc);
         case 11: return std::make_unique<ChorusPanel>         (proc);
         case 12: return std::make_unique<FlangerPanel>        (proc);
         case 13: return std::make_unique<PhaserPanel>         (proc);
+        case 14: return std::make_unique<SpatialPanel>        (proc);
         default: return std::make_unique<StubPanel>(proc, "UNKNOWN", ParamID::filterBypass);
     }
 }

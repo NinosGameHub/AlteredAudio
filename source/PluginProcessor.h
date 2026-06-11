@@ -15,6 +15,7 @@
 #include "ChorusModule.h"
 #include "FlangerModule.h"
 #include "PhaserModule.h"
+#include "SpatialModule.h"
 #include "LFOEngine.h"
 #include "EnvelopeFollower.h"
 #include "ModulationMatrix.h"
@@ -85,6 +86,7 @@ private:
     ChorusModule*     chorusMod     = nullptr;
     FlangerModule*    flangerMod    = nullptr;
     PhaserModule*     phaserMod     = nullptr;
+    SpatialModule*    spatialMod    = nullptr;
 
     // Cached APVTS raw parameter pointers — set in constructor, zero-cost to dereference on audio thread
     std::atomic<float>* p_channelMode   = nullptr;
@@ -224,6 +226,17 @@ private:
     std::atomic<float>* p_posPhaser      = nullptr;
     std::atomic<float>* p_posClipper     = nullptr;
     std::atomic<float>* p_posTransient   = nullptr;
+    std::atomic<float>* p_posSpatial     = nullptr;
+
+    std::atomic<float>* p_spatialBypass   = nullptr;
+    std::atomic<float>* p_spatialWidth    = nullptr;
+    std::atomic<float>* p_spatialPan      = nullptr;
+    std::atomic<float>* p_spatialRotation = nullptr;
+    std::atomic<float>* p_spatialMidGain  = nullptr;
+    std::atomic<float>* p_spatialSideGain = nullptr;
+    std::atomic<float>* p_spatialBassMono = nullptr;
+    std::atomic<float>* p_spatialHaasMs   = nullptr;
+    std::atomic<float>* p_spatialWetDry   = nullptr;
 
     void cacheParameterPointers();
     void updateModuleParameters();

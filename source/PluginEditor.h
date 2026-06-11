@@ -2,7 +2,8 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "AaLookAndFeel.h"
-#include "ChainStrip.h"
+#include "ModuleTileList.h"
+#include "CRTDisplay.h"
 #include "ModulePanels.h"
 
 class AlteredAudioEditor : public juce::AudioProcessorEditor
@@ -19,21 +20,21 @@ private:
 
     AaLookAndFeel laf;
 
-    // ---- Header ----
-    juce::Label titleLabel;
+    juce::Label    titleLabel;
+    ModuleTileList moduleTileList;
+    CRTDisplay     crtDisplay;
 
-    // ---- Chain strip ----
-    ChainStripComponent chainStrip;
-
-    // ---- Detail panel (swapped when a slot is clicked) ----
     std::unique_ptr<ModulePanel> currentPanel;
 
     void showModulePanel(int moduleIdx);
+    juce::Rectangle<int> getPanelBounds() const;
 
-    static constexpr int kHeaderH     = 48;
-    static constexpr int kStripH      = 80;
-    static constexpr int kWindowW     = 1000;
-    static constexpr int kWindowH     = 620;
+    // Layout constants
+    static constexpr int kHeaderH  = 40;
+    static constexpr int kListW    = 160;
+    static constexpr int kCRTH     = 180;
+    static constexpr int kWindowW  = 1000;
+    static constexpr int kWindowH  = 640;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AlteredAudioEditor)
 };

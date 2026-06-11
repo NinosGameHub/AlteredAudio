@@ -22,13 +22,10 @@ public:
     juce::String getName() const override { return "EQ"; }
 
     void setBand(int index, const BandParams& p);
-    void setNumBands(int n) { numBands = juce::jlimit(0, kMaxBands, n); }
-    int  getNumBands() const { return numBands; }
 
 private:
     static constexpr int kMaxChannels = 2;
     BiquadFilter bands[kMaxBands][kMaxChannels];
     BandParams   params[kMaxBands];
-    int          numBands = 0;
     double       currentSampleRate = 44100.0;
 };

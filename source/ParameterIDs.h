@@ -148,6 +148,18 @@ namespace ParamID
     constexpr const char* posPhaser       = "pos_phaser";
     constexpr const char* posClipper      = "pos_clipper";
     constexpr const char* posTransient    = "pos_transient";
+    constexpr const char* posSpatial      = "pos_spatial";
+
+    // Spatial
+    constexpr const char* spatialBypass   = "spatial_bypass";
+    constexpr const char* spatialWidth    = "spatial_width";
+    constexpr const char* spatialPan      = "spatial_pan";
+    constexpr const char* spatialRotation = "spatial_rotation";
+    constexpr const char* spatialMidGain  = "spatial_mid_gain";
+    constexpr const char* spatialSideGain = "spatial_side_gain";
+    constexpr const char* spatialBassMono = "spatial_bass_mono";
+    constexpr const char* spatialHaasMs   = "spatial_haas_ms";
+    constexpr const char* spatialWetDry   = "spatial_wetdry";
 
     // Phaser
     constexpr const char* phaserBypass    = "phaser_bypass";

@@ -14,7 +14,7 @@ void EQModule::process(juce::AudioBuffer<float>& buffer)
     const int numChannels = std::min(buffer.getNumChannels(), kMaxChannels);
     const int numSamples  = buffer.getNumSamples();
 
-    for (int b = 0; b < numBands; ++b)
+    for (int b = 0; b < kMaxBands; ++b)
     {
         if (!params[b].enabled) continue;
         for (int ch = 0; ch < numChannels; ++ch)

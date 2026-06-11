@@ -236,13 +236,28 @@ APVTS::ParameterLayout AlteredAudioProcessor::createParameterLayout()
         layout.add(std::move(g));
     }
 
-    // ---- Chain Order (each value = position 0..11; modules sorted by value) ----
+    // ---- Spatial ----
+    {
+        auto g = std::make_unique<Grp>("spatial", "Spatial", "|");
+        g->addChild(std::make_unique<juce::AudioParameterBool> (PID{ParamID::spatialBypass,   1}, "Bypass",            true));
+        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::spatialWidth,    1}, "Width",             NRange(0.0f, 2.0f), 1.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::spatialPan,      1}, "Pan",               NRange(-1.0f, 1.0f), 0.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::spatialRotation, 1}, "Rotation (deg)",    NRange(-180.0f, 180.0f), 0.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::spatialMidGain,  1}, "Mid Gain (dB)",     NRange(-24.0f, 24.0f), 0.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::spatialSideGain, 1}, "Side Gain (dB)",    NRange(-24.0f, 24.0f), 0.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::spatialBassMono, 1}, "Bass Mono (Hz)",    NRange(0.0f, 500.0f), 0.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::spatialHaasMs,   1}, "Haas Delay (ms)",   NRange(0.0f, 30.0f), 0.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat>(PID{ParamID::spatialWetDry,   1}, "Wet/Dry",           NRange(0.0f, 1.0f), 1.0f));
+        layout.add(std::move(g));
+    }
+
+    // ---- Chain Order (each value = position 0..14; modules sorted by value) ----
     {
         auto g = std::make_unique<Grp>("chain_order", "Chain Order", "|");
         auto pos = [](const char* id, const char* name, int def)
         {
             return std::make_unique<juce::AudioParameterInt>(
-                juce::ParameterID{id,1}, name, 0, 13, def);
+                juce::ParameterID{id,1}, name, 0, 14, def);
         };
         g->addChild(pos(ParamID::posFilter,     "Filter Order",          0));
         g->addChild(pos(ParamID::posEq,         "EQ Order",              1));
@@ -250,14 +265,15 @@ APVTS::ParameterLayout AlteredAudioProcessor::createParameterLayout()
         g->addChild(pos(ParamID::posDelay,      "Delay Order",           3));
         g->addChild(pos(ParamID::posReverb,     "Reverb Order",          4));
         g->addChild(pos(ParamID::posWaveshaper, "Waveshaper Order",      5));
-        g->addChild(pos(ParamID::posTransient,  "Transient Shaper Order",6));
-        g->addChild(pos(ParamID::posCompressor, "Compressor Order",      7));
-        g->addChild(pos(ParamID::posClipper,    "Clipper Order",         8));
+        g->addChild(pos(ParamID::posCompressor, "Compressor Order",      6));
+        g->addChild(pos(ParamID::posClipper,    "Clipper Order",         7));
+        g->addChild(pos(ParamID::posTransient,  "Transient Shaper Order",8));
         g->addChild(pos(ParamID::posLimiter,    "Limiter Order",         9));
         g->addChild(pos(ParamID::posGate,       "Gate Order",            10));
         g->addChild(pos(ParamID::posChorus,     "Chorus Order",          11));
         g->addChild(pos(ParamID::posFlanger,    "Flanger Order",         12));
         g->addChild(pos(ParamID::posPhaser,     "Phaser Order",          13));
+        g->addChild(pos(ParamID::posSpatial,    "Spatial Order",         14));
         layout.add(std::move(g));
     }
 
@@ -292,6 +308,7 @@ AlteredAudioProcessor::AlteredAudioProcessor()
     chorusMod     = static_cast<ChorusModule*>    (chain.addModule(std::make_unique<ChorusModule>()));
     flangerMod    = static_cast<FlangerModule*>   (chain.addModule(std::make_unique<FlangerModule>()));
     phaserMod     = static_cast<PhaserModule*>    (chain.addModule(std::make_unique<PhaserModule>()));
+    spatialMod    = static_cast<SpatialModule*>   (chain.addModule(std::make_unique<SpatialModule>()));
 }
 
 AlteredAudioProcessor::~AlteredAudioProcessor() {}
@@ -444,6 +461,17 @@ void AlteredAudioProcessor::cacheParameterPointers()
     p_posPhaser     = vts->getRawParameterValue(ParamID::posPhaser);
     p_posClipper    = vts->getRawParameterValue(ParamID::posClipper);
     p_posTransient  = vts->getRawParameterValue(ParamID::posTransient);
+    p_posSpatial    = vts->getRawParameterValue(ParamID::posSpatial);
+
+    p_spatialBypass   = vts->getRawParameterValue(ParamID::spatialBypass);
+    p_spatialWidth    = vts->getRawParameterValue(ParamID::spatialWidth);
+    p_spatialPan      = vts->getRawParameterValue(ParamID::spatialPan);
+    p_spatialRotation = vts->getRawParameterValue(ParamID::spatialRotation);
+    p_spatialMidGain  = vts->getRawParameterValue(ParamID::spatialMidGain);
+    p_spatialSideGain = vts->getRawParameterValue(ParamID::spatialSideGain);
+    p_spatialBassMono = vts->getRawParameterValue(ParamID::spatialBassMono);
+    p_spatialHaasMs   = vts->getRawParameterValue(ParamID::spatialHaasMs);
+    p_spatialWetDry   = vts->getRawParameterValue(ParamID::spatialWetDry);
 }
 
 // ============================================================
@@ -704,9 +732,27 @@ void AlteredAudioProcessor::updateModuleParameters()
             gainMod->setGainDb(*p_gainDb);
     }
 
+    // ---- Spatial ----
+    if (spatialMod != nullptr)
+    {
+        const bool bp = *p_spatialBypass > 0.5f;
+        spatialMod->setBypassed(bp);
+        if (!bp)
+        {
+            spatialMod->setWidth      (*p_spatialWidth);
+            spatialMod->setPan        (*p_spatialPan);
+            spatialMod->setRotationDeg(*p_spatialRotation);
+            spatialMod->setMidGainDb  (*p_spatialMidGain);
+            spatialMod->setSideGainDb (*p_spatialSideGain);
+            spatialMod->setBassMono   (*p_spatialBassMono);
+            spatialMod->setHaasMs     (*p_spatialHaasMs);
+            spatialMod->setWetDry     (*p_spatialWetDry);
+        }
+    }
+
     // ---- Module order ----
     {
-        std::array<std::pair<int,int>, 14> pairs {{
+        std::array<std::pair<int,int>, 15> pairs {{
             {0,  (int)*p_posFilter},
             {1,  (int)*p_posEq},
             {2,  (int)*p_posGain},
@@ -715,19 +761,20 @@ void AlteredAudioProcessor::updateModuleParameters()
             {5,  (int)*p_posWaveshaper},
             {6,  (int)*p_posCompressor},
             {7,  (int)*p_posClipper},
-            {8,  (int)*p_posTransient},   // module 8 = TransientShaper
-            {9,  (int)*p_posLimiter},     // module 9 = Limiter
-            {10, (int)*p_posGate},        // module 10 = Gate
-            {11, (int)*p_posChorus},      // module 11 = Chorus
-            {12, (int)*p_posFlanger},     // module 12 = Flanger
-            {13, (int)*p_posPhaser},      // module 13 = Phaser
+            {8,  (int)*p_posTransient},
+            {9,  (int)*p_posLimiter},
+            {10, (int)*p_posGate},
+            {11, (int)*p_posChorus},
+            {12, (int)*p_posFlanger},
+            {13, (int)*p_posPhaser},
+            {14, (int)*p_posSpatial},
         }};
         std::stable_sort(pairs.begin(), pairs.end(),
                          [](const auto& a, const auto& b){ return a.second < b.second; });
-        std::array<int, 14> order;
-        for (int i = 0; i < 14; ++i)
+        std::array<int, 15> order;
+        for (int i = 0; i < 15; ++i)
             order[i] = pairs[i].first;
-        chain.setProcessingOrder(order.data(), 14);
+        chain.setProcessingOrder(order.data(), 15);
     }
 }
 

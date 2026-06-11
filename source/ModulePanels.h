@@ -273,6 +273,20 @@ private:
 };
 
 // ============================================================
+//  SpatialPanel
+// ============================================================
+class SpatialPanel : public ModulePanel
+{
+public:
+    explicit SpatialPanel(AlteredAudioProcessor&);
+    void resized() override;
+private:
+    Knob widthKnob, panKnob, wetDryKnob;
+    Knob rotationKnob, midGainKnob, sideGainKnob, bassMonoKnob, haasKnob;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpatialPanel)
+};
+
+// ============================================================
 //  Panel factory — returns the right panel for a module index
 // ============================================================
 std::unique_ptr<ModulePanel> createModulePanel(AlteredAudioProcessor& proc, int moduleIdx);
