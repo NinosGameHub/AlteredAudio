@@ -56,6 +56,8 @@ public:
 
     juce::AudioProcessorValueTreeState& getAPVTS()   { return apvts; }
     ModulationMatrix&  getModulationMatrix()          { return modMatrix; }
+    CompressorModule*  getCompressorModule()    const { return compressorMod; }
+    LimiterModule*     getLimiterModule()       const { return limiterMod; }
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 

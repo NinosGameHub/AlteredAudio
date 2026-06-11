@@ -82,6 +82,23 @@ private:
 };
 
 // ============================================================
+//  EQCurveDisplay — log-scale frequency response overlay
+// ============================================================
+class EQCurveDisplay : public juce::Component, private juce::Timer
+{
+public:
+    explicit EQCurveDisplay(AlteredAudioProcessor& p);
+    void paint(juce::Graphics&) override;
+private:
+    AlteredAudioProcessor& proc;
+    struct BandData { bool on = false; int type = 5; float freq = 1000.f, q = 0.7f, gain = 0.f; };
+    BandData bands[EQModule::kMaxBands];
+    float computeResponseDb(float freqHz) const;
+    void  timerCallback() override;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EQCurveDisplay)
+};
+
+// ============================================================
 //  EQPanel
 // ============================================================
 class EQPanel : public ModulePanel
@@ -98,7 +115,8 @@ private:
         Knob               freqKnob, qKnob, gainKnob;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enableAttach;
     };
-    EqBand bands[kBands];
+    EqBand         bands[kBands];
+    EQCurveDisplay curveDisplay;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EQPanel)
 };
 
@@ -161,6 +179,24 @@ private:
 };
 
 // ============================================================
+//  GRMeter — gain-reduction bar for dynamics modules
+// ============================================================
+class GRMeter : public juce::Component, private juce::Timer
+{
+public:
+    GRMeter();
+    void setSource(std::function<float()> fn);
+    void paint(juce::Graphics&) override;
+private:
+    std::function<float()> getGRFn;
+    float currentDb       = 0.0f;
+    float peakDb          = 0.0f;
+    float peakHoldSecs    = 0.0f;
+    void  timerCallback() override;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GRMeter)
+};
+
+// ============================================================
 //  CompressorPanel
 // ============================================================
 class CompressorPanel : public ModulePanel
@@ -171,6 +207,7 @@ public:
 private:
     Knob threshKnob, ratioKnob, attackKnob, releaseKnob, kneeKnob, makeupKnob, rmsPeakKnob;
     Knob autoRelKnob, satKnob, scHPKnob, scLPKnob, stereoLinkKnob, mixKnob, lookaheadKnob;
+    GRMeter grMeter;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CompressorPanel)
 };
 
@@ -196,7 +233,8 @@ public:
     explicit LimiterPanel(AlteredAudioProcessor&);
     void resized() override;
 private:
-    Knob ceilingKnob, releaseKnob;
+    Knob    ceilingKnob, releaseKnob;
+    GRMeter grMeter;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LimiterPanel)
 };
 

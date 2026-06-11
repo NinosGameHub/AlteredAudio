@@ -142,6 +142,241 @@ namespace
 }
 
 // ============================================================
+//  EQCurveDisplay
+// ============================================================
+
+EQCurveDisplay::EQCurveDisplay(AlteredAudioProcessor& p) : proc(p)
+{
+    startTimerHz(30);
+}
+
+void EQCurveDisplay::timerCallback()
+{
+    auto& apvts = proc.getAPVTS();
+    bool changed = false;
+    for (int i = 0; i < EQModule::kMaxBands; ++i)
+    {
+        const int n = i + 1;
+        const auto* en = apvts.getRawParameterValue(ParamID::eqEnabled(n));
+        const auto* ty = apvts.getRawParameterValue(ParamID::eqType(n));
+        const auto* fr = apvts.getRawParameterValue(ParamID::eqFreq(n));
+        const auto* q  = apvts.getRawParameterValue(ParamID::eqQ(n));
+        const auto* ga = apvts.getRawParameterValue(ParamID::eqGain(n));
+
+        BandData nd;
+        nd.on   = en && *en > 0.5f;
+        nd.type = ty ? (int)ty->load() : 5;
+        nd.freq = fr ? fr->load() : 1000.0f;
+        nd.q    = q  ? q->load()  : 0.7f;
+        nd.gain = ga ? ga->load() : 0.0f;
+
+        if (nd.on != bands[i].on || nd.type != bands[i].type ||
+            nd.freq != bands[i].freq || nd.q != bands[i].q || nd.gain != bands[i].gain)
+        {
+            bands[i] = nd;
+            changed  = true;
+        }
+    }
+    if (changed)
+        repaint();
+}
+
+float EQCurveDisplay::computeResponseDb(float freqHz) const
+{
+    float total = 0.0f;
+    for (int i = 0; i < EQModule::kMaxBands; ++i)
+    {
+        const auto& b = bands[i];
+        if (!b.on) continue;
+        const float q   = std::max(0.1f, b.q);
+        const float oct = std::log2(freqHz / std::max(1.0f, b.freq));
+        const float bw  = 1.0f / q;
+        switch (b.type)
+        {
+            case 5: // Peak
+                total += b.gain * std::exp(-(oct * oct) / (2.0f * bw * bw));
+                break;
+            case 6: // LowShelf
+                total += b.gain / (1.0f + std::pow(std::max(0.0001f, freqHz / b.freq), 2.2f));
+                break;
+            case 7: // HighShelf
+                total += b.gain / (1.0f + std::pow(std::max(0.0001f, b.freq / freqHz), 2.2f));
+                break;
+            case 0: // LowPass
+                if (freqHz > b.freq)
+                    total -= 20.0f * q * std::log10(freqHz / b.freq);
+                break;
+            case 1: // HighPass
+                if (freqHz < b.freq)
+                    total -= 20.0f * q * std::log10(b.freq / freqHz);
+                break;
+            default: break;
+        }
+    }
+    return juce::jlimit(-18.0f, 18.0f, total);
+}
+
+void EQCurveDisplay::paint(juce::Graphics& g)
+{
+    const auto  bounds = getLocalBounds().toFloat();
+    const float w      = bounds.getWidth();
+    const float h      = bounds.getHeight();
+    constexpr float padL = 8.f, padR = 8.f, padT = 10.f, padB = 18.f;
+    const float plotW  = w - padL - padR;
+    const float plotH  = h - padT - padB;
+
+    g.setColour(AaColor::crtBg);
+    g.fillRoundedRectangle(bounds, 4.0f);
+
+    const float FMIN = 20.f, FMAX = 20000.f, GMAX = 18.f;
+    const float logFMin = std::log10(FMIN), logFMax = std::log10(FMAX);
+
+    const auto xF = [&](float f) { return padL + (std::log10(f) - logFMin) / (logFMax - logFMin) * plotW; };
+    const auto yG = [&](float db) { return padT + (1.f - (db + GMAX) / (2.f * GMAX)) * plotH; };
+
+    // Freq grid
+    for (float f : { 20.f,50.f,100.f,200.f,500.f,1000.f,2000.f,5000.f,10000.f,20000.f })
+    {
+        g.setColour(AaColor::crtAmber.withAlpha(0.09f));
+        g.drawVerticalLine((int)xF(f), padT, padT + plotH);
+    }
+    // dB grid
+    for (float db : { -12.f,-6.f,0.f,6.f,12.f })
+    {
+        g.setColour(db == 0.f ? AaColor::crtAmber.withAlpha(0.28f)
+                              : AaColor::crtAmber.withAlpha(0.09f));
+        g.drawHorizontalLine((int)yG(db), padL, padL + plotW);
+    }
+
+    // Response curve (200 points)
+    juce::Path fill, line;
+    const float zeroY = yG(0.f);
+    for (int i = 0; i <= 200; ++i)
+    {
+        const float t  = (float)i / 200.f;
+        const float f  = std::pow(10.f, logFMin + t * (logFMax - logFMin));
+        const float db = computeResponseDb(f);
+        const float x  = padL + t * plotW;
+        const float y  = yG(db);
+        if (i == 0) { fill.startNewSubPath(x, y); line.startNewSubPath(x, y); }
+        else        { fill.lineTo(x, y);           line.lineTo(x, y); }
+    }
+    fill.lineTo(padL + plotW, zeroY);
+    fill.lineTo(padL, zeroY);
+    fill.closeSubPath();
+
+    g.setColour(AaColor::catFilterEQ.withAlpha(0.14f));
+    g.fillPath(fill);
+    g.setColour(AaColor::catFilterEQ);
+    g.strokePath(line, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved));
+
+    // Band handles
+    g.setFont(juce::Font(8.0f));
+    for (int i = 0; i < EQModule::kMaxBands; ++i)
+    {
+        const auto& b  = bands[i];
+        const float f  = juce::jlimit(FMIN, FMAX, b.freq);
+        const float db = b.on ? juce::jlimit(-GMAX, GMAX, b.gain) : 0.f;
+        const float cx = xF(f), cy = yG(db);
+        const float r  = 7.f;
+        g.setColour(b.on ? AaColor::catFilterEQ : AaColor::inactive);
+        g.fillEllipse(cx - r, cy - r, r * 2.f, r * 2.f);
+        g.setColour(juce::Colours::white);
+        g.drawText(juce::String(i + 1),
+                   juce::Rectangle<float>(cx - r, cy - r + 1.f, r * 2.f, r * 2.f),
+                   juce::Justification::centred);
+    }
+
+    // Freq labels
+    g.setColour(AaColor::crtAmber.withAlpha(0.55f));
+    g.setFont(juce::Font(9.0f));
+    for (auto [f, lbl] : std::initializer_list<std::pair<float,const char*>>{
+            {20,"20"},{100,"100"},{1000,"1k"},{10000,"10k"},{20000,"20k"}})
+    {
+        g.drawText(lbl, juce::Rectangle<float>(xF(f) - 16.f, h - padB + 2.f, 32.f, 12.f),
+                   juce::Justification::centred);
+    }
+}
+
+// ============================================================
+//  GRMeter
+// ============================================================
+
+GRMeter::GRMeter() { startTimerHz(30); }
+
+void GRMeter::setSource(std::function<float()> fn) { getGRFn = std::move(fn); }
+
+void GRMeter::timerCallback()
+{
+    const float newDb = getGRFn ? getGRFn() : 0.0f;
+    bool needRepaint  = false;
+
+    if (newDb < peakDb)
+    {
+        peakDb       = newDb;
+        peakHoldSecs = 2.0f;
+        needRepaint  = true;
+    }
+    if (peakHoldSecs > 0.0f)
+    {
+        peakHoldSecs -= 1.0f / 30.0f;
+        if (peakHoldSecs <= 0.0f) { peakDb = 0.0f; needRepaint = true; }
+    }
+    if (std::abs(newDb - currentDb) > 0.05f)
+    {
+        currentDb   = newDb;
+        needRepaint = true;
+    }
+    if (needRepaint) repaint();
+}
+
+void GRMeter::paint(juce::Graphics& g)
+{
+    const auto  b    = getLocalBounds().toFloat();
+    const float w    = b.getWidth();
+    const float h    = b.getHeight();
+    constexpr float GR_MAX = 24.f;
+    const float barX = w * 0.25f, barW = w * 0.50f;
+    const float barTop = 14.f, barH = h - barTop - 26.f;
+
+    // Background
+    g.setColour(AaColor::crtBg);
+    g.fillRoundedRectangle(b, 3.0f);
+
+    // Track
+    g.setColour(AaColor::surfaceAlt);
+    g.fillRoundedRectangle(barX, barTop, barW, barH, 2.0f);
+
+    // GR fill (downward from top)
+    const float grFrac = juce::jlimit(0.f, 1.f, -currentDb / GR_MAX);
+    if (grFrac > 0.001f)
+    {
+        g.setColour(grFrac > 0.6f ? juce::Colour(0xFFD44C00) : AaColor::catDynamics);
+        g.fillRoundedRectangle(barX, barTop, barW, grFrac * barH, 2.0f);
+    }
+
+    // Peak hold
+    if (peakDb < -0.5f)
+    {
+        const float peakFrac = juce::jlimit(0.f, 1.f, -peakDb / GR_MAX);
+        g.setColour(AaColor::catDynamics.brighter(0.5f));
+        g.fillRect(barX, barTop + peakFrac * barH - 1.f, barW, 2.f);
+    }
+
+    // Labels
+    g.setFont(juce::Font(9.0f));
+    g.setColour(AaColor::textSecond);
+    g.drawText("GR", b.withTrimmedTop(4.f).withHeight(10.f), juce::Justification::centred);
+    if (-currentDb > 0.5f)
+    {
+        g.setColour(AaColor::catDynamics);
+        g.drawText(juce::String((int)-currentDb) + "dB",
+                   b.withTrimmedTop(h - 14.f).withHeight(12.f),
+                   juce::Justification::centred);
+    }
+}
+
+// ============================================================
 //  FilterPanel
 // ============================================================
 
@@ -174,8 +409,10 @@ void FilterPanel::resized()
 // ============================================================
 
 EQPanel::EQPanel(AlteredAudioProcessor& p)
-    : ModulePanel(p, "EQ", ParamID::eqBypass)
+    : ModulePanel(p, "EQ", ParamID::eqBypass), curveDisplay(p)
 {
+    addAndMakeVisible(curveDisplay);
+
     const juce::StringArray types { "LowPass","HighPass","BandPass","Notch",
                                     "AllPass","Peak","LowShelf","HighShelf" };
     for (int i = 0; i < kBands; ++i)
@@ -198,25 +435,31 @@ EQPanel::EQPanel(AlteredAudioProcessor& p)
 void EQPanel::resized()
 {
     ModulePanel::resized();
-    const auto area   = contentArea();
-    const int  bandW  = area.getWidth() / 4;
-    const int  rowH   = area.getHeight() / 2;
+    const auto area    = contentArea();
+    constexpr int curveH = 170, gap = 6;
+
+    curveDisplay.setBounds(area.getX(), area.getY(), area.getWidth(), curveH);
+
+    const int  bandAreaY = area.getY() + curveH + gap;
+    const int  bandAreaH = area.getHeight() - curveH - gap;
+    const int  bandW     = area.getWidth() / 4;
+    const int  rowH      = bandAreaH / 2;
 
     for (int i = 0; i < kBands; ++i)
     {
         const int col = i % 4;
         const int row = i / 4;
         const int bx  = area.getX() + col * bandW;
-        const int by  = area.getY() + row * rowH;
+        const int by  = bandAreaY + row * rowH;
         const int bw  = bandW - 4;
 
         bands[i].enableBtn.setBounds(bx, by + 2, 50, 20);
 
         const int comboY = by + 26;
-        bands[i].typeCombo.label.setBounds(bx, comboY,            bw, kLabelH);
-        bands[i].typeCombo.box.setBounds  (bx, comboY + kLabelH,  bw, kComboH);
+        bands[i].typeCombo.label.setBounds(bx, comboY,           bw, kLabelH);
+        bands[i].typeCombo.box.setBounds  (bx, comboY + kLabelH, bw, kComboH);
 
-        const int knobY = comboY + kLabelH + kComboH + 6;
+        const int knobY = comboY + kLabelH + kComboH + 4;
         const int kw    = bw / 3;
         bands[i].freqKnob.label.setBounds (bx,          knobY,           kw - 2, kLabelH);
         bands[i].freqKnob.slider.setBounds(bx,          knobY + kLabelH, kw - 2, kKnobH);
@@ -353,6 +596,12 @@ void WaveshaperPanel::resized()
 CompressorPanel::CompressorPanel(AlteredAudioProcessor& p)
     : ModulePanel(p, "COMPRESSOR", ParamID::compBypass)
 {
+    grMeter.setSource([&p]() {
+        if (auto* m = p.getCompressorModule()) return m->getGainReductionDb();
+        return 0.0f;
+    });
+    addAndMakeVisible(grMeter);
+
     makeKnob(threshKnob,     ParamID::compThreshold,  "THRESH");
     makeKnob(ratioKnob,      ParamID::compRatio,      "RATIO");
     makeKnob(attackKnob,     ParamID::compAttack,     "ATTACK");
@@ -372,16 +621,20 @@ CompressorPanel::CompressorPanel(AlteredAudioProcessor& p)
 void CompressorPanel::resized()
 {
     ModulePanel::resized();
-    const auto area = contentArea();
-    const int x = area.getX(), y = area.getY(), w = area.getWidth();
+    const auto area   = contentArea();
+    const int  x      = area.getX(), y = area.getY();
+    constexpr int meterW = 44, meterGap = 8;
+    const int  knobW  = area.getWidth() - meterW - meterGap;
+
+    grMeter.setBounds(area.getRight() - meterW, y, meterW, area.getHeight());
 
     Knob* row1[] = { &threshKnob, &ratioKnob, &attackKnob, &releaseKnob,
                      &kneeKnob, &makeupKnob, &rmsPeakKnob };
-    placeKnobRow(row1, 7, x, y, w);
+    placeKnobRow(row1, 7, x, y, knobW);
 
     Knob* row2[] = { &autoRelKnob, &satKnob, &scHPKnob, &scLPKnob,
                      &stereoLinkKnob, &mixKnob, &lookaheadKnob };
-    placeKnobRow(row2, 7, x, y + kRowH + 12, w);
+    placeKnobRow(row2, 7, x, y + kRowH + 12, knobW);
 }
 
 // ============================================================
@@ -413,6 +666,12 @@ void TransientShaperPanel::resized()
 LimiterPanel::LimiterPanel(AlteredAudioProcessor& p)
     : ModulePanel(p, "LIMITER", ParamID::limBypass)
 {
+    grMeter.setSource([&p]() {
+        if (auto* m = p.getLimiterModule()) return m->getGainReductionDb();
+        return 0.0f;
+    });
+    addAndMakeVisible(grMeter);
+
     makeKnob(ceilingKnob, ParamID::limCeiling, "CEILING (dB)");
     makeKnob(releaseKnob, ParamID::limRelease, "RELEASE (ms)");
 }
@@ -421,6 +680,10 @@ void LimiterPanel::resized()
 {
     ModulePanel::resized();
     const auto area = contentArea();
+    constexpr int meterW = 44, meterGap = 8;
+
+    grMeter.setBounds(area.getRight() - meterW, area.getY(), meterW, area.getHeight());
+
     Knob* row[] = { &ceilingKnob, &releaseKnob };
     placeKnobRow(row, 2, area.getX(), area.getY(), area.getWidth() / 2);
 }
