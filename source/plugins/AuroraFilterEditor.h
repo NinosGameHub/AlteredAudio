@@ -4,20 +4,28 @@
 #include "../ParameterIDs.h"
 
 // ============================================================
-//  Aurora palette — Design Specification v1.0
+//  Filter 76 palette — filter76-design/tokens/colors.css
 // ============================================================
 namespace aurora
 {
-    const juce::Colour baseSurface { 0xFFE6E0D2 };  // dirty white
-    const juce::Colour warmBeige   { 0xFFD8D1C1 };  // secondary surface
+    const juce::Colour baseSurface { 0xFFE6E0D2 };  // dirty white — ABS plastic
+    const juce::Colour warmBeige   { 0xFFD8D1C1 };  // secondary / recessed surface
+    const juce::Colour cream       { 0xFFEDE7D8 };  // raised — knob bodies, keys
+    const juce::Colour sand        { 0xFFCFC7B5 };  // pressed / sunken
     const juce::Colour border      { 0xFF7A7468 };
     const juce::Colour textPrimary { 0xFF1F1F1F };
     const juce::Colour textSecond  { 0xFF5E594E };
+    const juce::Colour inkFaint    { 0xFF908A7D };  // tertiary / disabled
     const juce::Colour amber       { 0xFFD08A2E };
+    const juce::Colour amberHi     { 0xFFE0A047 };  // hover
+    const juce::Colour amberLo     { 0xFFB0721F };  // press / product mark
+    const juce::Colour textOnAccent{ 0xFF1A140A };
     const juce::Colour mustard     { 0xFFB8943A };
     const juce::Colour warnOrange  { 0xFFC56A2B };
     const juce::Colour graphBg     { 0xFF171717 };
     const juce::Colour graphLine   { 0xFFF0B547 };
+    const juce::Colour curveGlow   { 0xFFFBD27A };  // response-curve halo
+    const juce::Colour curveLine   { 0xFFFFE0A0 };  // response-curve core
     const juce::Colour led         { 0xFFD99A33 };
 
     inline juce::Font heading(float h)
@@ -104,7 +112,9 @@ struct FilterAnalysisSource
 };
 
 // ============================================================
-//  AuroraLookAndFeel — cream plastic knobs, black indicator
+//  AuroraLookAndFeel — Filter 76 controls: matte-cream puck knobs
+//  with a floating tick ring + amber dot, LED option rows, amber
+//  toggle keys, dark amber readout wells.
 // ============================================================
 class AuroraLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -117,7 +127,62 @@ public:
     void drawButtonBackground(juce::Graphics&, juce::Button&,
                               const juce::Colour& backgroundColour,
                               bool highlighted, bool down) override;
+    void drawButtonText(juce::Graphics&, juce::TextButton&,
+                        bool highlighted, bool down) override;
     juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override;
+};
+
+// ============================================================
+//  PowerKey — round cream power key with status LED beneath
+// ============================================================
+class PowerKey : public juce::Button
+{
+public:
+    PowerKey() : juce::Button("power") { setClickingTogglesState(true); }
+
+    void paintButton(juce::Graphics& g, bool over, bool down) override
+    {
+        const bool on = getToggleState();
+        const auto r  = getLocalBounds().toFloat();
+        const float d = juce::jmin(r.getWidth(), r.getHeight() - 14.0f);
+        juce::Rectangle<float> key(r.getCentreX() - d * 0.5f, r.getY(), d, d);
+
+        // soft drop shadow + cream dome
+        g.setColour(juce::Colour(0x402A251C));
+        g.fillEllipse(key.translated(0.0f, 1.8f));
+        juce::ColourGradient grad(juce::Colour(0xFFF3EEE0),
+                                  key.getX() + d * 0.38f, key.getY() + d * 0.30f,
+                                  juce::Colour(0xFFDCD4C2),
+                                  key.getX() + d * 0.5f,  key.getBottom(), true);
+        grad.addColour(0.42, aurora::cream);
+        g.setGradientFill(grad);
+        g.fillEllipse(key.reduced(down ? 1.2f : 0.0f));
+        g.setColour(aurora::border.withAlpha(over ? 0.95f : 0.65f));
+        g.drawEllipse(key.reduced(0.5f), 1.0f);
+
+        // power glyph — thin rounded strokes
+        const float cx = key.getCentreX(), cy = key.getCentreY(), gr = d * 0.22f;
+        g.setColour(on ? aurora::textPrimary : aurora::inkFaint);
+        g.drawLine(cx, cy - gr * 1.25f, cx, cy - gr * 0.15f, 2.2f);
+        juce::Path arc;
+        arc.addCentredArc(cx, cy, gr, gr, 0.0f,
+                          juce::MathConstants<float>::pi * 0.30f,
+                          juce::MathConstants<float>::pi * 1.70f, true);
+        g.strokePath(arc, juce::PathStrokeType(2.2f, juce::PathStrokeType::curved,
+                                               juce::PathStrokeType::rounded));
+
+        // status LED
+        const float lr = 3.0f, ly = r.getBottom() - lr * 2.2f;
+        if (on)
+        {
+            g.setColour(aurora::led.withAlpha(0.35f));
+            g.fillEllipse(cx - lr * 2.0f, ly - lr * 2.0f + lr, lr * 4.0f, lr * 4.0f);
+            g.setColour(aurora::led);
+        }
+        else
+            g.setColour(aurora::border.withAlpha(0.5f));
+        g.fillEllipse(cx - lr, ly, lr * 2.0f, lr * 2.0f);
+    }
 };
 
 // ============================================================
@@ -265,7 +330,7 @@ private:
     // Header
     juce::TextButton prevPreset { "<" }, nextPreset { ">" };
     juce::TextButton btnA { "A" }, btnB { "B" };
-    juce::TextButton powerBtn { "POWER" };
+    PowerKey powerBtn;
     juce::Label presetLabel;
     int currentPreset = 0;
     juce::ValueTree slotA, slotB;
