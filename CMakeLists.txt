@@ -125,13 +125,9 @@ target_sources(AlteredAudio_Filter PRIVATE
     source/plugins/AuroraFilterEditor.cpp
 )
 
-aa_add_plugin(AlteredAudio_Gain           AGn1 "AlteredAudio Gain 76"          "Fx")
-target_sources(AlteredAudio_Gain PRIVATE
-    ${AA_SINGLE_MODULE_BASE}
-    source/GainModule.cpp
-    source/plugins/GainPlugin.cpp
-    source/plugins/GainEditor.cpp
-)
+# Gain 76 lives in its own self-contained project: Gain76/ (build dir
+# build-gain76/). The rack target above still compiles GainModule.cpp
+# for the internal chain.
 
 aa_add_plugin(AlteredAudio_Delay          ADly "AlteredAudio Delay"            "Fx Delay")
 target_sources(AlteredAudio_Delay PRIVATE

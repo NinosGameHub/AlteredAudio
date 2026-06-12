@@ -1,13 +1,16 @@
 # ============================================================
-#  Gain 76 — standalone build, isolated from the main stack.
-#  Configure once:  cmake -S gain -B build-gain
-#  Build:           cmake --build build-gain --config Release --target Gain76_VST3
-#  Version bumps here reconfigure ONLY this project (one plugin),
-#  not the 16-target main solution. LTO is intentionally off for
-#  fast iteration links.
+#  Gain 76 — fully self-contained plugin project.
+#  Shares NOTHING with the AlteredAudio rack / other modules:
+#  all sources live in Gain76/Source/.
+#
+#  Configure once:  cmake -S Gain76 -B build-gain76
+#  Build:           cmake --build build-gain76 --config Release --target Gain76_VST3
+#  Install:         tools\install-vst3.ps1 -Only "AlteredAudio Gain 76.vst3"
+#
+#  LTO is intentionally off for fast iteration links.
 # ============================================================
 cmake_minimum_required(VERSION 3.24)
-project(Gain76 VERSION 0.8.13)
+project(Gain76 VERSION 0.8.14)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,10 +36,8 @@ juce_add_plugin(Gain76
 juce_generate_juce_header(Gain76)
 
 target_sources(Gain76 PRIVATE
-    ../source/SingleModuleProcessor.cpp
-    ../source/GainModule.cpp
-    ../source/plugins/GainPlugin.cpp
-    ../source/plugins/GainEditor.cpp
+    Source/GainProcessor.cpp
+    Source/GainEditor.cpp
 )
 
 target_compile_definitions(Gain76 PUBLIC

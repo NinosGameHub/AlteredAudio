@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot  = Split-Path -Parent $PSScriptRoot
-$buildDirs = @((Join-Path $repoRoot 'build'), (Join-Path $repoRoot 'build-gain'))
+$buildDirs = @((Join-Path $repoRoot 'build'), (Join-Path $repoRoot 'build-gain76'))
 $destRoot  = 'C:\Program Files\Common Files\VST3\AlteredAudio'
 $oldRack   = 'C:\Program Files\Common Files\VST3\AlteredAudio.vst3'   # pre-0.4 location
 

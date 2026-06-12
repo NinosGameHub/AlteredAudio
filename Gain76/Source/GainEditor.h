@@ -1,6 +1,15 @@
 #pragma once
 #include <JuceHeader.h>
-#include "../ParameterIDs.h"
+
+// Parameter IDs — kept byte-identical to the old shared ParameterIDs.h
+// so existing DAW sessions keep loading.
+namespace ParamID
+{
+    constexpr const char* gainBypass   = "gain_bypass";
+    constexpr const char* gainDb       = "gain_db";
+    constexpr const char* gainMode     = "gain_mode";       // Stereo / Mono / Side
+    constexpr const char* gainOversamp = "gain_oversamp";   // 1x / 4x / 8x
+}
 
 // ============================================================
 //  Gain 76 — same Altered Audio faceplate language as Filter 76
