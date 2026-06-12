@@ -498,7 +498,10 @@ void ResponseDisplay::paint(juce::Graphics& g)
     // the peaks poking up from the bottom edge.
     {
         static constexpr float kSpecTop = 12.0f, kSpecBot = -90.0f;
+        static constexpr float kSilence = -78.0f;   // noise floor sits at -82 dB
         auto ySpec = [h](float db) {
+            if (db < kSilence)                       // silence: dip below the
+                return h + 4.0f;                     // visible area, no jitter
             return (kSpecTop - juce::jlimit(kSpecBot, kSpecTop, db))
                  / (kSpecTop - kSpecBot) * h; };
 
