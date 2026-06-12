@@ -57,6 +57,151 @@ namespace aurora
 }
 
 // ============================================================
+//  PresetManager — user presets in ~/Documents/AlteredAudio/Filter 76/Presets/
+// ============================================================
+struct PresetManager
+{
+    static juce::File presetsDir()
+    {
+        return juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+               .getChildFile("AlteredAudio")
+               .getChildFile("Filter 76")
+               .getChildFile("Presets");
+    }
+    static juce::StringArray userNames()
+    {
+        juce::StringArray names;
+        auto dir = presetsDir();
+        if (!dir.isDirectory()) return names;
+        juce::Array<juce::File> files;
+        dir.findChildFiles(files, juce::File::findFiles, false, "*.f76preset");
+        for (auto& f : files)
+            names.add(f.getFileNameWithoutExtension());
+        names.sort(false);
+        return names;
+    }
+    static bool save(const juce::String& name, juce::AudioProcessorValueTreeState& apvts)
+    {
+        auto dir = presetsDir();
+        if (!dir.isDirectory() && !dir.createDirectory()) return false;
+        auto xml = apvts.copyState().createXml();
+        return xml && xml->writeTo(dir.getChildFile(name + ".f76preset"));
+    }
+    static juce::ValueTree load(const juce::String& name)
+    {
+        auto f = presetsDir().getChildFile(name + ".f76preset");
+        if (!f.existsAsFile()) return {};
+        auto xml = juce::XmlDocument::parse(f);
+        return xml ? juce::ValueTree::fromXml(*xml) : juce::ValueTree{};
+    }
+    static bool remove(const juce::String& name)
+    {
+        return presetsDir().getChildFile(name + ".f76preset").deleteFile();
+    }
+};
+
+// ============================================================
+//  SavePresetOverlay — inline save dialog, floats over the content component
+// ============================================================
+class SavePresetOverlay : public juce::Component
+{
+public:
+    std::function<void(const juce::String&)> onSave;
+    std::function<void()> onDismiss;
+
+    explicit SavePresetOverlay(const juce::String& initialName)
+    {
+        nameEd.setText(initialName, false);
+        nameEd.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 14.0f, juce::Font::plain));
+        nameEd.setColour(juce::TextEditor::backgroundColourId,      aurora::graphBg);
+        nameEd.setColour(juce::TextEditor::textColourId,            aurora::graphLine);
+        nameEd.setColour(juce::TextEditor::outlineColourId,         aurora::border);
+        nameEd.setColour(juce::TextEditor::focusedOutlineColourId,  aurora::amber);
+        nameEd.setJustification(juce::Justification::centredLeft);
+        nameEd.onReturnKey = [this]() { doConfirm(); };
+        nameEd.onEscapeKey = [this]() { doCancel();  };
+        addAndMakeVisible(nameEd);
+
+        confirmBtn.setColour(juce::TextButton::buttonColourId,  aurora::amber);
+        confirmBtn.setColour(juce::TextButton::textColourOffId, aurora::textOnAccent);
+        confirmBtn.onClick = [this]() { doConfirm(); };
+        cancelBtn .onClick = [this]() { doCancel();  };
+        addAndMakeVisible(confirmBtn);
+        addAndMakeVisible(cancelBtn);
+        setInterceptsMouseClicks(true, true);
+    }
+
+    void visibilityChanged() override
+    {
+        if (isVisible()) { nameEd.selectAll(); nameEd.grabKeyboardFocus(); }
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        g.setColour(juce::Colour(0xC0100D0A));
+        g.fillAll();
+
+        const auto dlg = dialogBounds();
+        g.setColour(aurora::baseSurface);
+        g.fillRoundedRectangle(dlg, 8.0f);
+        g.setColour(juce::Colour(0x66FFFCF4));
+        g.fillRect(dlg.getX() + 2.0f, dlg.getY() + 1.0f, dlg.getWidth() - 4.0f, 1.5f);
+        g.setColour(aurora::border);
+        g.drawRoundedRectangle(dlg, 8.0f, 1.0f);
+
+        g.setColour(aurora::textPrimary);
+        g.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 11.0f, juce::Font::bold)
+                  .withExtraKerningFactor(0.14f));
+        g.drawText("SAVE PRESET",
+                   juce::roundToInt(dlg.getX()) + 20,
+                   juce::roundToInt(dlg.getY()) + 16, 300, 15,
+                   juce::Justification::centredLeft);
+        g.setColour(aurora::textSecond);
+        g.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::plain)
+                  .withExtraKerningFactor(0.06f));
+        g.drawText("NAME",
+                   juce::roundToInt(dlg.getX()) + 20,
+                   juce::roundToInt(dlg.getY()) + 44, 80, 12,
+                   juce::Justification::centredLeft);
+    }
+
+    void resized() override
+    {
+        const auto dlg = dialogBounds();
+        nameEd.setBounds(juce::roundToInt(dlg.getX()) + 20,
+                         juce::roundToInt(dlg.getY()) + 58,
+                         juce::roundToInt(dlg.getWidth()) - 40, 28);
+        constexpr int bw = 74, bh = 26;
+        confirmBtn.setBounds(juce::roundToInt(dlg.getRight()) - bw * 2 - 18,
+                             juce::roundToInt(dlg.getBottom()) - bh - 14, bw, bh);
+        cancelBtn .setBounds(juce::roundToInt(dlg.getRight()) - bw - 10,
+                             juce::roundToInt(dlg.getBottom()) - bh - 14, bw, bh);
+    }
+
+private:
+    juce::TextEditor nameEd;
+    juce::TextButton confirmBtn { "SAVE" }, cancelBtn { "CANCEL" };
+
+    juce::Rectangle<float> dialogBounds() const
+    {
+        const float w = (float)getWidth(), h = (float)getHeight();
+        constexpr float dw = 440.0f, dh = 160.0f;
+        return { (w - dw) * 0.5f, (h - dh) * 0.5f, dw, dh };
+    }
+    void doConfirm()
+    {
+        const auto n = nameEd.getText().trim().toUpperCase();
+        if (n.isNotEmpty() && onSave) onSave(n);
+        doCancel();
+    }
+    void doCancel()
+    {
+        if (onDismiss) juce::MessageManager::callAsync(onDismiss);
+    }
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SavePresetOverlay)
+};
+
+// ============================================================
 //  FilterAnalysisSource — lock-free audio→UI data bridge
 // ============================================================
 struct FilterAnalysisSource
@@ -289,7 +434,11 @@ private:
     void timerCallback() override;
     void makeKnob(AuroraKnob&, const juce::String& paramId, juce::Component& parent);
     void setParam(const juce::String& id, float realValue);
-    void applyPreset(int index);
+    void applyPreset(int index);      // factory-only; prefer loadPresetAtIdx
+    void loadPresetAtIdx(int idx);    // unified factory + user navigation
+    void updatePresetLabel();
+    void browsePresets();
+    void doSavePreset(const juce::String& name);
     void switchAB(int slot);
     void rebindLfoKnobs(int lfoIndex);
     void rebindEnvKnobs();
@@ -331,12 +480,27 @@ private:
 
     // Header
     juce::TextButton prevPreset { "<" }, nextPreset { ">" };
+    juce::TextButton saveBtn    { "SAVE" };
     juce::TextButton btnA { "A" }, btnB { "B" };
     PowerKey powerBtn;
     juce::Label presetLabel;
-    int currentPreset = 0;
+    int  currentPresetIdx  = 0;
+    bool currentIsUser     = false;
+    juce::String currentPresetName { "INIT" };
     juce::ValueTree slotA, slotB;
     int activeSlot = 0;
+
+    // Preset save overlay (shown inline on SAVE click)
+    std::unique_ptr<SavePresetOverlay> saveOverlay;
+
+    // Click-to-browse handler for the preset label
+    struct PresetLabelClick : juce::MouseListener
+    {
+        std::function<void()> fn;
+        void mouseDown(const juce::MouseEvent& e) override
+        { if (!e.mods.isPopupMenu() && fn) fn(); }
+    };
+    PresetLabelClick presetLabelClick;
 
     // Modulation section — routing dropdowns (Select.jsx idiom)
     juce::ComboBox srcBox, dstBox, osBox;

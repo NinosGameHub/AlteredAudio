@@ -871,15 +871,32 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
     presetLabel.setColour(juce::Label::textColourId, aurora::graphLine);
     presetLabel.setColour(juce::Label::backgroundColourId, aurora::graphBg);
     presetLabel.setColour(juce::Label::outlineColourId, juce::Colours::transparentBlack);
-    presetLabel.setText("001  " + juce::String(presets()[0].name), juce::dontSendNotification);
+    updatePresetLabel();
     content.addAndMakeVisible(presetLabel);
+    presetLabel.addMouseListener(&presetLabelClick, false);
+    presetLabel.setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    presetLabelClick.fn = [this]() { browsePresets(); };
 
-    prevPreset.onClick = [this]() {
-        applyPreset((currentPreset + (int)presets().size() - 1) % (int)presets().size()); };
-    nextPreset.onClick = [this]() {
-        applyPreset((currentPreset + 1) % (int)presets().size()); };
+    prevPreset.onClick = [this]() { loadPresetAtIdx(currentPresetIdx - 1); };
+    nextPreset.onClick = [this]() { loadPresetAtIdx(currentPresetIdx + 1); };
     content.addAndMakeVisible(prevPreset);
     content.addAndMakeVisible(nextPreset);
+
+    content.addAndMakeVisible(saveBtn);
+    saveBtn.onClick = [this]() {
+        if (saveOverlay != nullptr) return;
+        auto* ov = new SavePresetOverlay(currentPresetName);
+        ov->setBounds(0, 0, kW, kH);
+        juce::Component::SafePointer<AuroraFilterEditor> safe(this);
+        ov->onSave    = [this](const juce::String& n) { doSavePreset(n); };
+        ov->onDismiss = [safe]() {
+            juce::MessageManager::callAsync([safe]() {
+                if (safe) safe->saveOverlay.reset();
+            });
+        };
+        saveOverlay.reset(ov);
+        content.addAndMakeVisible(ov);
+    };
 
     slotA = apvts.copyState().createCopy();
     slotB = apvts.copyState().createCopy();
@@ -1109,14 +1126,101 @@ void AuroraFilterEditor::setParam(const juce::String& id, float realValue)
         p->setValueNotifyingHost(p->getNormalisableRange().convertTo0to1(realValue));
 }
 
+void AuroraFilterEditor::updatePresetLabel()
+{
+    presetLabel.setText(
+        juce::String(currentPresetIdx + 1).paddedLeft('0', 3) + "  " + currentPresetName,
+        juce::dontSendNotification);
+}
+
 void AuroraFilterEditor::applyPreset(int index)
 {
-    currentPreset = juce::jlimit(0, (int)presets().size() - 1, index);
-    for (const auto& [id, v] : presets()[(size_t)currentPreset].values)
+    currentPresetIdx  = juce::jlimit(0, (int)presets().size() - 1, index);
+    currentIsUser     = false;
+    currentPresetName = presets()[(size_t)currentPresetIdx].name;
+    for (const auto& [id, v] : presets()[(size_t)currentPresetIdx].values)
         setParam(id, v);
-    presetLabel.setText(juce::String(currentPreset + 1).paddedLeft('0', 3)
-                            + "  " + presets()[(size_t)currentPreset].name,
-                        juce::dontSendNotification);
+    updatePresetLabel();
+}
+
+void AuroraFilterEditor::loadPresetAtIdx(int idx)
+{
+    const auto& fp = presets();
+    const auto userList = PresetManager::userNames();
+    const int total = (int)fp.size() + userList.size();
+    if (total == 0) return;
+    idx = ((idx % total) + total) % total;
+
+    if (idx < (int)fp.size())
+    {
+        applyPreset(idx);
+    }
+    else
+    {
+        const int ui  = idx - (int)fp.size();
+        currentPresetIdx  = idx;
+        currentIsUser     = true;
+        currentPresetName = userList[ui];
+        const auto state  = PresetManager::load(currentPresetName);
+        if (state.isValid()) apvts.replaceState(state);
+        updatePresetLabel();
+    }
+}
+
+void AuroraFilterEditor::browsePresets()
+{
+    const auto& fp = presets();
+    const auto userList = PresetManager::userNames();
+
+    juce::PopupMenu menu;
+    menu.setLookAndFeel(&lnf);
+
+    menu.addSectionHeader("FACTORY");
+    for (int i = 0; i < (int)fp.size(); ++i)
+    {
+        const auto lbl = juce::String(i + 1).paddedLeft('0', 3) + "  " + fp[i].name;
+        menu.addItem(i + 1, lbl, true, !currentIsUser && currentPresetIdx == i);
+    }
+
+    if (!userList.isEmpty())
+    {
+        menu.addSeparator();
+        menu.addSectionHeader("USER");
+        for (int i = 0; i < userList.size(); ++i)
+        {
+            const int absIdx = (int)fp.size() + i;
+            const auto lbl = juce::String(absIdx + 1).paddedLeft('0', 3) + "  " + userList[i];
+            menu.addItem(200 + i, lbl, true,
+                         currentIsUser && currentPresetName == userList[i]);
+        }
+    }
+
+    const auto mouse = juce::Desktop::getMousePosition();
+    menu.showMenuAsync(
+        juce::PopupMenu::Options().withTargetScreenArea({ mouse.x, mouse.y, 1, 1 }),
+        [this](int result) {
+            if (result == 0) return;
+            if (result < 200)
+                loadPresetAtIdx(result - 1);
+            else
+            {
+                const auto ul = PresetManager::userNames();
+                const int ui = result - 200;
+                if (ui >= 0 && ui < ul.size())
+                    loadPresetAtIdx((int)presets().size() + ui);
+            }
+        });
+}
+
+void AuroraFilterEditor::doSavePreset(const juce::String& name)
+{
+    if (!PresetManager::save(name, apvts)) return;
+    currentIsUser     = true;
+    currentPresetName = name;
+    const auto ul = PresetManager::userNames();
+    const int  ui = ul.indexOf(name);
+    currentPresetIdx = (int)presets().size() + juce::jmax(0, ui);
+    updatePresetLabel();
 }
 
 void AuroraFilterEditor::switchAB(int slot)
@@ -1306,6 +1410,7 @@ void AuroraFilterEditor::resized()
     prevPreset .setBounds(540,  36, 26, 26);
     presetLabel.setBounds(572,  35, 300, 28);
     nextPreset .setBounds(878,  36, 26, 26);
+    saveBtn    .setBounds(910,  36, 52, 26);
     osBox   .setBounds(1044, 40, 64, 22);
     btnA    .setBounds(1216, 38, 38, 26);
     btnB    .setBounds(1256, 38, 38, 26);
