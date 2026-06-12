@@ -409,6 +409,56 @@ private:
 };
 
 // ============================================================
+//  HeaderDragger — transparent vertical-drag overlay for header readouts
+// ============================================================
+class HeaderDragger : public juce::Component
+{
+public:
+    juce::AudioProcessorValueTreeState* apvts = nullptr;
+    juce::String paramId;
+
+    HeaderDragger()
+    {
+        setInterceptsMouseClicks(true, false);
+        setMouseCursor(juce::MouseCursor::UpDownResizeCursor);
+    }
+
+    void mouseDown(const juce::MouseEvent& e) override
+    {
+        if (e.mods.isLeftButtonDown())
+        {
+            dragStartY = e.getPosition().getY();
+            if (apvts)
+                if (const auto* raw = apvts->getRawParameterValue(paramId))
+                    dragStartVal = raw->load();
+        }
+    }
+
+    void mouseDrag(const juce::MouseEvent& e) override
+    {
+        if (!apvts) return;
+        auto* p = apvts->getParameter(paramId);
+        if (!p) return;
+        const float dy    = (float)(e.getPosition().getY() - dragStartY);
+        const auto& range = p->getNormalisableRange();
+        const float nv    = juce::jlimit(range.start, range.end,
+                                         dragStartVal - dy / 200.0f * (range.end - range.start));
+        p->setValueNotifyingHost(range.convertTo0to1(nv));
+    }
+
+    void mouseDoubleClick(const juce::MouseEvent&) override
+    {
+        if (!apvts) return;
+        if (auto* p = apvts->getParameter(paramId))
+            p->setValueNotifyingHost(p->getDefaultValue());
+    }
+
+private:
+    int   dragStartY   = 0;
+    float dragStartVal = 0.0f;
+};
+
+// ============================================================
 //  AuroraFilterEditor — resizable, fixed 1400x900 design space
 // ============================================================
 class AuroraFilterEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -482,7 +532,8 @@ private:
     juce::TextButton prevPreset { "<" }, nextPreset { ">" };
     juce::TextButton saveBtn    { "SAVE" };
     juce::TextButton btnA { "A" }, btnB { "B" };
-    PowerKey powerBtn;
+    PowerKey     powerBtn;
+    HeaderDragger mixDragger;
     juce::Label presetLabel;
     int  currentPresetIdx  = 0;
     bool currentIsUser     = false;

@@ -71,17 +71,31 @@ namespace
 
 AuroraLookAndFeel::AuroraLookAndFeel()
 {
-    // Slider text boxes are dark amber readout wells
-    setColour(juce::Slider::textBoxTextColourId,       aurora::textPrimary);
-    setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
-    setColour(juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
-    setColour(juce::Label::textColourId,               aurora::textPrimary);
-    setColour(juce::TextButton::textColourOffId,       aurora::textPrimary);
-    setColour(juce::TextButton::textColourOnId,        aurora::textPrimary);
-    setColour(juce::PopupMenu::backgroundColourId,     aurora::cream);
-    setColour(juce::PopupMenu::textColourId,           aurora::textPrimary);
-    setColour(juce::PopupMenu::highlightedBackgroundColourId, aurora::amber);
-    setColour(juce::PopupMenu::highlightedTextColourId, aurora::textOnAccent);
+    // Slider text boxes: dark text on transparent (shows cream panel behind)
+    setColour(juce::Slider::textBoxTextColourId,          aurora::textPrimary);
+    setColour(juce::Slider::textBoxBackgroundColourId,    juce::Colours::transparentBlack);
+    setColour(juce::Slider::textBoxOutlineColourId,       juce::Colours::transparentBlack);
+
+    // Labels (covers all slider text-box labels)
+    setColour(juce::Label::textColourId,                  aurora::textPrimary);
+    setColour(juce::Label::backgroundColourId,            juce::Colours::transparentBlack);
+
+    // TextEditor (inline value edit when user double-clicks a text box)
+    setColour(juce::TextEditor::textColourId,             aurora::textPrimary);
+    setColour(juce::TextEditor::backgroundColourId,       aurora::cream);
+    setColour(juce::TextEditor::outlineColourId,          aurora::border);
+    setColour(juce::TextEditor::highlightColourId,        aurora::amber.withAlpha(0.4f));
+    setColour(juce::TextEditor::highlightedTextColourId,  aurora::textPrimary);
+
+    setColour(juce::TextButton::textColourOffId,          aurora::textPrimary);
+    setColour(juce::TextButton::textColourOnId,           aurora::textPrimary);
+
+    // PopupMenu: cream background, dark text, dark section headers
+    setColour(juce::PopupMenu::backgroundColourId,             aurora::cream);
+    setColour(juce::PopupMenu::textColourId,                   aurora::textPrimary);
+    setColour(juce::PopupMenu::headerTextColourId,             aurora::textSecond);
+    setColour(juce::PopupMenu::highlightedBackgroundColourId,  aurora::amber);
+    setColour(juce::PopupMenu::highlightedTextColourId,        aurora::textOnAccent);
 }
 
 // Filter 76 knob: flat matte-cream puck, floating tick ring with an air
@@ -191,8 +205,8 @@ void AuroraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w,
         g.setColour(juce::Colour(0xFF6B6353).withAlpha(enabled ? 1.0f : 0.5f));
         g.setFont(aurora::mono(size * 0.046f).withExtraKerningFactor(0.02f));   // spec: 4.6%
         g.drawFittedText(label,
-                         (int)(cx - rDisc * 0.85f), (int)(cy + size * 0.052f),
-                         (int)(rDisc * 1.7f), (int)(size * 0.065f),
+                         (int)(cx - rDisc * 0.8075f), (int)(cy + size * 0.052f),
+                         (int)(rDisc * 1.615f), (int)(size * 0.065f),
                          juce::Justification::centred, 1, 0.9f);
     }
 }
@@ -202,9 +216,13 @@ juce::Label* AuroraLookAndFeel::createSliderTextBox(juce::Slider& s)
     auto* l = LookAndFeel_V4::createSliderTextBox(s);
     l->setFont(aurora::mono(11.0f));
     l->setJustificationType(juce::Justification::centred);
-    l->setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    l->setColour(juce::Label::textColourId,       aurora::textPrimary);
-    l->setColour(juce::Label::outlineColourId,    juce::Colours::transparentBlack);
+    l->setColour(juce::Label::textColourId,              aurora::textPrimary);
+    l->setColour(juce::Label::backgroundColourId,        juce::Colours::transparentBlack);
+    l->setColour(juce::Label::outlineColourId,           juce::Colours::transparentBlack);
+    l->setColour(juce::TextEditor::textColourId,         aurora::textPrimary);
+    l->setColour(juce::TextEditor::backgroundColourId,   aurora::cream);
+    l->setColour(juce::TextEditor::outlineColourId,      aurora::border);
+    l->setColour(juce::TextEditor::highlightColourId,    aurora::amber.withAlpha(0.4f));
     return l;
 }
 
@@ -937,6 +955,10 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
     osAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         apvts, ParamID::filterOversamp, osBox);
 
+    mixDragger.apvts   = &apvts;
+    mixDragger.paramId = ParamID::filterMix;
+    content.addAndMakeVisible(mixDragger);
+
     // ---- LFO engine ----
     const char* waveNames[4] = { "SINE", "TRI", "SQR", "RND" };
     for (int i = 0; i < 4; ++i)
@@ -1430,10 +1452,11 @@ void AuroraFilterEditor::resized()
     presetLabel.setBounds(572,  19, 300, 26);
     nextPreset .setBounds(878,  19, 26, 26);
     saveBtn    .setBounds(910,  19, 52, 26);
-    osBox   .setBounds(1044, 21, 64, 22);
-    btnA    .setBounds(1216, 21, 38, 22);
-    btnB    .setBounds(1256, 21, 38, 22);
-    powerBtn.setBounds(1318,  6, 44, 58);   // circle d=44, LED at ~60px
+    osBox      .setBounds(1044, 21, 64, 22);
+    mixDragger .setBounds(1128, 20, 72, 46);   // covers MIX label + well
+    btnA       .setBounds(1216, 21, 38, 22);
+    btnB       .setBounds(1256, 21, 38, 22);
+    powerBtn   .setBounds(1318,  6, 44, 58);   // circle d=44, LED at ~60px
 
     // ---- Display + OUTPUT meter panel ----
     display.setBounds(16, kDisplayY, kKnobPanel.getRight() - 16 - 14, kDisplayH);
