@@ -27,6 +27,7 @@ namespace aurora
     const juce::Colour curveGlow   { 0xFFFBD27A };  // response-curve halo
     const juce::Colour curveLine   { 0xFFFFE0A0 };  // response-curve core
     const juce::Colour led         { 0xFFD99A33 };
+    const juce::Colour ledOff      { 0xFF6E685C };  // disabled indicator / LED bezel
 
     inline juce::Font heading(float h)
     {

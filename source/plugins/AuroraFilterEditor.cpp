@@ -92,7 +92,8 @@ void AuroraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w,
                                          float sliderPos, float startAngle, float endAngle,
                                          juce::Slider& s)
 {
-    const bool face = (bool)s.getProperties().getWithDefault("face", false);
+    const bool face    = (bool)s.getProperties().getWithDefault("face", false);
+    const bool enabled = s.isEnabled();
 
     const auto bounds = juce::Rectangle<float>((float)x, (float)y, (float)w, (float)h).reduced(1.0f);
     const float size  = juce::jmin(bounds.getWidth(), bounds.getHeight());
@@ -121,14 +122,17 @@ void AuroraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w,
         if (!top && std::abs(std::remainder(a - angle, juce::MathConstants<float>::twoPi)) < 0.16f)
             continue;
         const float rOut = top ? rTop : (major ? rMajor : rMinor);
-        g.setColour(aurora::textPrimary.withAlpha(0.8f));
+        g.setColour(aurora::textPrimary.withAlpha(enabled ? 0.8f : 0.3f));
         g.drawLine(px(a, rTickIn), py(a, rTickIn), px(a, rOut), py(a, rOut),
                    top ? 1.6f : (major ? 1.1f : 0.8f));
     }
 
-    // bold tick tracking the value
-    g.setColour(aurora::textPrimary);
-    g.drawLine(px(angle, rTickIn), py(angle, rTickIn), px(angle, rTop), py(angle, rTop), 1.8f);
+    // bold tick tracking the value (hidden while disabled)
+    if (enabled)
+    {
+        g.setColour(aurora::textPrimary);
+        g.drawLine(px(angle, rTickIn), py(angle, rTickIn), px(angle, rTop), py(angle, rTop), 1.8f);
+    }
 
     // --- matte cream puck: drop shadow, vertical sheen, thin dark edge ---
     g.setColour(juce::Colour(0x612A251C));
@@ -152,16 +156,24 @@ void AuroraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w,
                                                juce::PathStrokeType::rounded));
     }
 
-    // --- glowing amber dot on the face, aligned with the value tick ---
+    // --- face dot: glowing amber when live, flat grey when disabled ---
     {
         const float dr = juce::jmax(1.6f, size * 0.021f);
         const float dx = px(angle, rDisc * 0.8f), dy = py(angle, rDisc * 0.8f);
-        g.setColour(aurora::graphLine.withAlpha(0.35f));
-        g.fillEllipse(dx - dr * 1.9f, dy - dr * 1.9f, dr * 3.8f, dr * 3.8f);
-        g.setColour(juce::Colour(0xFFEFA42F));
-        g.fillEllipse(dx - dr, dy - dr, dr * 2.0f, dr * 2.0f);
-        g.setColour(juce::Colour(0xFFFFE2A6));
-        g.fillEllipse(dx - dr * 0.65f, dy - dr * 0.65f, dr * 0.8f, dr * 0.8f);
+        if (enabled)
+        {
+            g.setColour(aurora::graphLine.withAlpha(0.35f));
+            g.fillEllipse(dx - dr * 1.9f, dy - dr * 1.9f, dr * 3.8f, dr * 3.8f);
+            g.setColour(juce::Colour(0xFFEFA42F));
+            g.fillEllipse(dx - dr, dy - dr, dr * 2.0f, dr * 2.0f);
+            g.setColour(juce::Colour(0xFFFFE2A6));
+            g.fillEllipse(dx - dr * 0.65f, dy - dr * 0.65f, dr * 0.8f, dr * 0.8f);
+        }
+        else
+        {
+            g.setColour(aurora::ledOff);
+            g.fillEllipse(dx - dr * 0.9f, dy - dr * 0.9f, dr * 1.8f, dr * 1.8f);
+        }
     }
 
     // --- on-face value + label (hero knobs) ---
@@ -170,12 +182,12 @@ void AuroraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w,
         const juce::String value = s.getTextFromValue(s.getValue());
         const juce::String label = s.getProperties().getWithDefault("faceLabel", "").toString();
 
-        g.setColour(juce::Colour(0xFF2A2620));
+        g.setColour(juce::Colour(0xFF2A2620).withAlpha(enabled ? 1.0f : 0.45f));
         g.setFont(aurora::mono(size * 0.12f));
         g.drawText(value, (int)(cx - rDisc), (int)(cy - size * 0.10f),
                    (int)(rDisc * 2.0f), (int)(size * 0.14f), juce::Justification::centred);
 
-        g.setColour(juce::Colour(0xFF6B6353));
+        g.setColour(juce::Colour(0xFF6B6353).withAlpha(enabled ? 1.0f : 0.5f));
         g.setFont(aurora::mono(size * 0.066f).withExtraKerningFactor(0.10f));
         g.drawText(label, (int)(cx - rDisc), (int)(cy + size * 0.05f),
                    (int)(rDisc * 2.0f), (int)(size * 0.09f), juce::Justification::centred);
@@ -1197,6 +1209,20 @@ void AuroraFilterEditor::updateButtonStates()
     const bool on = raw(ParamID::filterBypass) == 0;
     if (powerBtn.getToggleState() != on)
         powerBtn.setToggleState(on, juce::dontSendNotification);
+
+    // ---- enablement: a knob that can't affect the sound is disabled ----
+    const int src = raw(ParamID::fltModSource);
+    const bool lfoOn = (src == 1 || src == 2);
+
+    gainKnob  .slider.setEnabled(type == 5 || type == 6 || type == 7);  // PEAK / shelves
+    driveKnob .slider.setEnabled(raw(ParamID::filterMode) == 0);        // CLEAN bypasses drive
+    amountKnob.slider.setEnabled(src != 0);
+    rateKnob  .slider.setEnabled(lfoOn);
+    depthKnob .slider.setEnabled(lfoOn);
+    phaseKnob .slider.setEnabled(lfoOn);
+    atkKnob   .slider.setEnabled(src == 3);
+    relKnob   .slider.setEnabled(src == 3);
+    sensKnob  .slider.setEnabled(src == 3);
 }
 
 void AuroraFilterEditor::timerCallback()
