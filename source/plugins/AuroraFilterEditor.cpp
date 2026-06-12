@@ -256,6 +256,39 @@ juce::Font AuroraLookAndFeel::getTextButtonFont(juce::TextButton&, int)
     return aurora::mono(11.0f);
 }
 
+// Flat combo box (Select.jsx): cream fill, hairline border, thin chevron
+void AuroraLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
+                                     int, int, int, int, juce::ComboBox& box)
+{
+    const auto r = juce::Rectangle<float>(0.0f, 0.0f, (float)width, (float)height).reduced(0.5f);
+    g.setColour(isButtonDown ? aurora::sand
+                             : box.isMouseOver() ? aurora::cream.brighter(0.04f) : aurora::cream);
+    g.fillRoundedRectangle(r, 3.0f);
+    g.setColour(aurora::border);
+    g.drawRoundedRectangle(r, 3.0f, 1.0f);
+
+    const float chx = (float)width - 17.0f, chy = (float)height * 0.5f;
+    juce::Path ch;
+    ch.startNewSubPath(chx - 4.0f, chy - 2.0f);
+    ch.lineTo(chx, chy + 2.5f);
+    ch.lineTo(chx + 4.0f, chy - 2.0f);
+    g.setColour(aurora::textSecond);
+    g.strokePath(ch, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved,
+                                          juce::PathStrokeType::rounded));
+}
+
+juce::Font AuroraLookAndFeel::getComboBoxFont(juce::ComboBox&)
+{
+    return aurora::mono(12.0f).withExtraKerningFactor(0.06f);
+}
+
+void AuroraLookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label& label)
+{
+    label.setBounds(10, 1, box.getWidth() - 36, box.getHeight() - 2);
+    label.setFont(getComboBoxFont(box));
+    label.setColour(juce::Label::textColourId, aurora::textPrimary);
+}
+
 // ============================================================
 //  ResponseDisplay
 // ============================================================
@@ -769,7 +802,8 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
     mixKnob   .slider.textFromValueFunction = [](double v) { return juce::String(juce::roundToInt(v * 100.0)); };
     outKnob   .slider.textFromValueFunction = [](double v) { return juce::String(v, 1); };
     gainKnob  .slider.textFromValueFunction = [](double v) { return juce::String(v, 1) + " dB"; };
-    amountKnob.slider.textFromValueFunction = [](double v) { return juce::String(v * 100.0, 1) + " %"; };
+    amountKnob.slider.textFromValueFunction = [](double v) {
+        return (v >= 0.0 ? "+" : "") + juce::String(v * 100.0, 1) + " %"; };
     sensKnob  .slider.textFromValueFunction = [](double v) { return juce::String(v, 1); };
     for (auto* k : { &freqKnob, &resKnob, &driveKnob, &mixKnob, &outKnob,
                      &gainKnob, &amountKnob, &sensKnob })
@@ -829,21 +863,15 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
     };
     content.addAndMakeVisible(powerBtn);
 
-    // ---- Modulation routing buttons ----
-    const char* srcNames[4] = { "OFF", "LFO A", "LFO B", "ENV" };
-    for (int i = 0; i < 4; ++i)
-    {
-        srcBtns[i].setButtonText(srcNames[i]);
-        srcBtns[i].onClick = [this, i]() { setParam(ParamID::fltModSource, (float)i); };
-        content.addAndMakeVisible(srcBtns[i]);
-    }
-    const char* dstNames[3] = { "FREQ", "RES", "DRIVE" };
-    for (int i = 0; i < 3; ++i)
-    {
-        dstBtns[i].setButtonText(dstNames[i]);
-        dstBtns[i].onClick = [this, i]() { setParam(ParamID::fltModDest, (float)i); };
-        content.addAndMakeVisible(dstBtns[i]);
-    }
+    // ---- Modulation routing dropdowns ----
+    srcBox.addItemList({ "OFF", "LFO A", "LFO B", "ENV" }, 1);
+    dstBox.addItemList({ "FREQUENCY", "RESONANCE", "DRIVE" }, 1);
+    content.addAndMakeVisible(srcBox);
+    content.addAndMakeVisible(dstBox);
+    srcAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, ParamID::fltModSource, srcBox);
+    dstAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, ParamID::fltModDest, dstBox);
 
     // ---- LFO engine ----
     const char* waveNames[4] = { "SINE", "TRI", "SQR", "RND" };
@@ -961,8 +989,8 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
         title(sensKnob.slider,   "SENS");
 
         // section sub-labels
-        label(kModPanel.getX() + 18, kModPanel.getY() + 34,  200, "SOURCE");
-        label(kModPanel.getX() + 18, kModPanel.getY() + 98,  200, "DESTINATION");
+        label(kModPanel.getX() + 18, kModPanel.getY() + 38,  200, "SOURCE");
+        label(kModPanel.getX() + 18, kModPanel.getY() + 102, 200, "DESTINATION");
         label(kSlopePanel.getX() + 18, kSlopePanel.getY() + 112, 100, "MODE");
 
         // ---- footer: warm strip with SYSTEM LED + inline stats ----
@@ -1160,11 +1188,6 @@ void AuroraFilterEditor::updateButtonStates()
     color(modeAnalog, mode == 0);
     color(modeClean,  mode == 1);
 
-    const int src = raw(ParamID::fltModSource);
-    for (int i = 0; i < 4; ++i) color(srcBtns[i], src == i);
-    const int dst = raw(ParamID::fltModDest);
-    for (int i = 0; i < 3; ++i) color(dstBtns[i], dst == i);
-
     const int wave = raw(boundLfo == 1 ? ParamID::fltLfoBWave : ParamID::fltLfoAWave);
     for (int i = 0; i < 4; ++i) color(waveBtns[i], wave == i);
 
@@ -1264,10 +1287,8 @@ void AuroraFilterEditor::resized()
     // ---- MODULATION panel ----
     {
         const int px = kModPanel.getX(), py = kModPanel.getY();
-        for (int i = 0; i < 4; ++i)
-            srcBtns[i].setBounds(px + 16 + i * 70, py + 50, 64, 26);
-        for (int i = 0; i < 3; ++i)
-            dstBtns[i].setBounds(px + 16 + i * 90, py + 114, 84, 26);
+        srcBox.setBounds(px + 18, py + 52,  262, 30);
+        dstBox.setBounds(px + 18, py + 116, 262, 30);
         amountKnob.slider.setBounds(px + 320, py + 56, 94, 70 + 17);
     }
 

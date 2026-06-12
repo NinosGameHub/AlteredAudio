@@ -124,6 +124,11 @@ public:
     void drawButtonText(juce::Graphics&, juce::TextButton&,
                         bool highlighted, bool down) override;
     juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override;
+    void drawComboBox(juce::Graphics&, int width, int height, bool isButtonDown,
+                      int buttonX, int buttonY, int buttonW, int buttonH,
+                      juce::ComboBox&) override;
+    juce::Font getComboBoxFont(juce::ComboBox&) override;
+    void positionComboBoxText(juce::ComboBox&, juce::Label&) override;
 };
 
 // ============================================================
@@ -332,9 +337,9 @@ private:
     juce::ValueTree slotA, slotB;
     int activeSlot = 0;
 
-    // Modulation section
-    juce::TextButton srcBtns[4];    // OFF LFO A LFO B ENV
-    juce::TextButton dstBtns[3];    // FREQ RES DRIVE
+    // Modulation section — routing dropdowns (Select.jsx idiom)
+    juce::ComboBox srcBox, dstBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> srcAttach, dstAttach;
     AuroraKnob amountKnob;
 
     // LFO engine
