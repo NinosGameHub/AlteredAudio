@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(AlteredAudio VERSION 0.7.0)
+project(AlteredAudio VERSION 0.7.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,7 +17,7 @@ juce_add_plugin(AlteredAudio
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD TRUE
     FORMATS VST3
-    PLUGIN_VERSION "0.7.0"
+    PLUGIN_VERSION "0.7.1"
     PRODUCT_NAME "AlteredAudio"
     VST3_CATEGORIES "Fx"
 )
@@ -116,7 +116,7 @@ target_sources(AlteredAudio_EQ PRIVATE
     source/plugins/EQPlugin.cpp
 )
 
-aa_add_plugin(AlteredAudio_Filter         AFlt "AlteredAudio Filter"           "Fx Filter")
+aa_add_plugin(AlteredAudio_Filter         AFlt "AlteredAudio Filter 76"        "Fx Filter")
 target_sources(AlteredAudio_Filter PRIVATE
     ${AA_SINGLE_MODULE_BASE}
     source/BiquadFilter.cpp

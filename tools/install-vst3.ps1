@@ -60,4 +60,18 @@ if (Test-Path $oldRack) {
     }
 }
 
+# ---- Remove installs whose product was renamed ----
+$renamed = @('AlteredAudio Filter.vst3')   # pre-0.7.1 name of Filter 76
+foreach ($name in $renamed) {
+    $stale = Join-Path $destRoot $name
+    if (Test-Path $stale) {
+        try {
+            Remove-Item $stale -Recurse -Force -ErrorAction Stop
+            Write-Host "Removed renamed plugin $name"
+        } catch {
+            Write-Host "$name is locked - close your DAW and delete it manually." -ForegroundColor Yellow
+        }
+    }
+}
+
 Write-Host "`nDone. All plugins are in $destRoot" -ForegroundColor Green

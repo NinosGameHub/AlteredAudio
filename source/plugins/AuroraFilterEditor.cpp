@@ -653,10 +653,10 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
         g.fillRect(0, 0, kW, kHeaderH);
         g.setColour(aurora::baseSurface);
         g.setFont(aurora::heading(20.0f));
-        g.drawText("AURORA FILTER", 24, 10, 320, 24, juce::Justification::centredLeft);
+        g.drawText("FILTER 76", 24, 10, 320, 24, juce::Justification::centredLeft);
         g.setColour(aurora::textSecond.brighter(0.4f));
         g.setFont(aurora::mono(10.0f));
-        g.drawText("MODEL AF-74 MK III", 24, 36, 320, 14, juce::Justification::centredLeft);
+        g.drawText("MODEL AF-76 MK III", 24, 36, 320, 14, juce::Justification::centredLeft);
 
         // Panels
         auto panel = [&g](juce::Rectangle<int> r, const char* title) {
