@@ -116,14 +116,9 @@ target_sources(AlteredAudio_EQ PRIVATE
     source/plugins/EQPlugin.cpp
 )
 
-aa_add_plugin(AlteredAudio_Filter         AFlt "AlteredAudio Filter 76"        "Fx Filter")
-target_sources(AlteredAudio_Filter PRIVATE
-    ${AA_SINGLE_MODULE_BASE}
-    source/BiquadFilter.cpp
-    source/FilterModule.cpp
-    source/plugins/FilterPlugin.cpp
-    source/plugins/AuroraFilterEditor.cpp
-)
+# Filter 76 lives in its own independent project: C:\Dev\Filter76\
+# (see Filter76/README.md). The rack target above still compiles
+# FilterModule.cpp / BiquadFilter.cpp for the internal chain.
 
 # Gain 76 lives in its own self-contained project: Gain76/ (build dir
 # build-gain76/). The rack target above still compiles GainModule.cpp
