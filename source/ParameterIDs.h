@@ -14,6 +14,7 @@ namespace ParamID
     constexpr const char* filterGain      = "filter_gain";
     constexpr const char* filterSlope     = "filter_slope";    // 0=12, 1=24, 2=48 dB/oct (LP/HP)
     constexpr const char* filterMode      = "filter_mode";     // 0=Analog (tanh drive), 1=Clean
+    constexpr const char* filterOversamp  = "filter_oversampling"; // 0=1x, 1=4x, 2=8x
     constexpr const char* filterDrive     = "filter_drive";    // 0..24 dB input saturation
     constexpr const char* filterMix       = "filter_mix";      // dry/wet
     constexpr const char* filterOutput    = "filter_output";   // output trim dB

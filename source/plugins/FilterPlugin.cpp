@@ -20,6 +20,7 @@ public:
         p_gain      = raw(ParamID::filterGain);
         p_slope     = raw(ParamID::filterSlope);
         p_mode      = raw(ParamID::filterMode);
+        p_oversamp  = raw(ParamID::filterOversamp);
         p_drive     = raw(ParamID::filterDrive);
         p_mix       = raw(ParamID::filterMix);
         p_output    = raw(ParamID::filterOutput);
@@ -56,6 +57,7 @@ public:
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterGain,  1}, "Gain (dB)",   NR(-24.0f, 24.0f),                 0.0f));
         g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::filterSlope, 1}, "Slope",       juce::StringArray{"12","24","48"}, 0));
         g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::filterMode,  1}, "Mode",        juce::StringArray{"Analog","Clean"}, 0));
+        g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::filterOversamp,1}, "Oversampling", juce::StringArray{"1x","4x","8x"}, 0));
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterDrive, 1}, "Drive (dB)",  NR(0.0f, 24.0f),                   0.0f));
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterMix,   1}, "Mix",         NR(0.0f, 1.0f),                    1.0f));
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterOutput,1}, "Output (dB)", NR(-24.0f, 24.0f),                 0.0f));
@@ -90,9 +92,32 @@ public:
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override
     {
+        baseRate_  = sampleRate;
+        baseBlock_ = samplesPerBlock;
+
+        for (int i = 0; i < 2; ++i)
+        {
+            // 4x = 2 halfband stages, 8x = 3 — polyphase IIR, integer latency for PDC
+            os_[i] = std::make_unique<juce::dsp::Oversampling<float>>(
+                2, (size_t)(i + 2),
+                juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR, true, true);
+            os_[i]->initProcessing((size_t)samplesPerBlock);
+        }
+
+        osCur_ = 0;
         SingleModuleProcessor::prepareToPlay(sampleRate, samplesPerBlock);
         loadMeasurer_.reset(sampleRate, samplesPerBlock);
         env_  = 0.0f;
+        osCur_ = -1;   // re-sync with the parameter on the first block
+    }
+
+    // Re-prepare the module chain at the (possibly oversampled) rate
+    void applyOversampling(int idx)
+    {
+        osCur_ = idx;
+        const int mult = idx == 0 ? 1 : (idx == 1 ? 4 : 8);
+        SingleModuleProcessor::prepareToPlay(baseRate_ * mult, baseBlock_ * mult);
+        if (idx > 0) os_[idx - 1]->reset();
     }
 
     void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override
@@ -133,7 +158,32 @@ public:
         for (int l = 0; l < 2; ++l)
             advanceLfo(l, buffer.getNumSamples(), sr);
 
-        SingleModuleProcessor::processBlock(buffer, midi);   // calls updateModuleParameters
+        // Reconfigure when the oversampling choice changes
+        const int osIdx = juce::jlimit(0, 2, (int)*p_oversamp);
+        if (osIdx != osCur_)
+            applyOversampling(osIdx);
+
+        if (osIdx == 0)
+        {
+            SingleModuleProcessor::processBlock(buffer, midi);   // calls updateModuleParameters
+        }
+        else
+        {
+            // Filter runs at the oversampled rate between the halfband stages
+            auto& os = *os_[osIdx - 1];
+            juce::dsp::AudioBlock<float> blk(buffer);
+            auto up = os.processSamplesUp(blk);
+
+            const int nc = juce::jmin(2, (int)up.getNumChannels());
+            float* ptrs[2] = {};
+            for (int ch = 0; ch < nc; ++ch)
+                ptrs[ch] = up.getChannelPointer((size_t)ch);
+
+            juce::AudioBuffer<float> osBuf(ptrs, nc, (int)up.getNumSamples());
+            SingleModuleProcessor::processBlock(osBuf, midi);
+
+            os.processSamplesDown(blk);
+        }
 
         analysis_.sampleRate.store((float)sr);
         analysis_.cpuPct.store((float)loadMeasurer_.getLoadAsPercentage());
@@ -150,6 +200,12 @@ public:
     }
 
 protected:
+    int getExtraLatencySamples() const override
+    {
+        return (osCur_ >= 1 && os_[osCur_ - 1] != nullptr)
+                   ? (int)os_[osCur_ - 1]->getLatencyInSamples() : 0;
+    }
+
     void updateModuleParameters() override
     {
         auto* mod = static_cast<FilterModule*>(module_.get());
@@ -244,6 +300,7 @@ private:
     std::atomic<float>* p_freq   = nullptr;  std::atomic<float>* p_q      = nullptr;
     std::atomic<float>* p_gain   = nullptr;  std::atomic<float>* p_slope  = nullptr;
     std::atomic<float>* p_mode   = nullptr;
+    std::atomic<float>* p_oversamp = nullptr;
     std::atomic<float>* p_drive  = nullptr;  std::atomic<float>* p_mix    = nullptr;
     std::atomic<float>* p_output = nullptr;
     std::atomic<float>* p_modSource = nullptr;
@@ -269,6 +326,11 @@ private:
     float heldRandom_[2] = { 0.0f, 0.0f };
     float env_ = 0.0f;
     juce::Random rng_;
+
+    std::unique_ptr<juce::dsp::Oversampling<float>> os_[2];   // [0]=4x, [1]=8x
+    int    osCur_     = -1;
+    double baseRate_  = 44100.0;
+    int    baseBlock_ = 512;
 
     juce::AudioProcessLoadMeasurer loadMeasurer_;
     FilterAnalysisSource analysis_;

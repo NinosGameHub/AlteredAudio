@@ -339,8 +339,8 @@ private:
     int activeSlot = 0;
 
     // Modulation section — routing dropdowns (Select.jsx idiom)
-    juce::ComboBox srcBox, dstBox;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> srcAttach, dstAttach;
+    juce::ComboBox srcBox, dstBox, osBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> srcAttach, dstAttach, osAttach;
     AuroraKnob amountKnob;
 
     // LFO engine

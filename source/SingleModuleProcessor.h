@@ -42,6 +42,10 @@ protected:
     // Called once per processBlock, before the module runs.
     virtual void updateModuleParameters() = 0;
 
+    // Additional fixed latency a subclass introduces around the module
+    // (e.g. oversampling filters) — included in host PDC reporting.
+    virtual int getExtraLatencySamples() const { return 0; }
+
     std::unique_ptr<EffectModule>           module_;
     juce::AudioProcessorValueTreeState      apvts_;
 

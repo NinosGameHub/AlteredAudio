@@ -14,7 +14,8 @@ void SingleModuleProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
 {
     module_->prepare(sampleRate, samplesPerBlock);
     dryBuffer_.setSize(2, samplesPerBlock, false, true, false);
-    setLatencySamples(module_->isBypassed() ? 0 : module_->getLatencySamples());
+    setLatencySamples((module_->isBypassed() ? 0 : module_->getLatencySamples())
+                      + getExtraLatencySamples());
 }
 
 void SingleModuleProcessor::releaseResources()
@@ -33,7 +34,8 @@ void SingleModuleProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     updateModuleParameters();
 
     // Keep host PDC current with bypass state and latency-affecting params
-    const int latency = module_->isBypassed() ? 0 : module_->getLatencySamples();
+    const int latency = (module_->isBypassed() ? 0 : module_->getLatencySamples())
+                      + getExtraLatencySamples();
     if (latency != getLatencySamples())
         setLatencySamples(latency);
 

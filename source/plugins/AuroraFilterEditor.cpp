@@ -187,10 +187,13 @@ void AuroraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w,
         g.drawText(value, (int)(cx - rDisc), (int)(cy - size * 0.10f),
                    (int)(rDisc * 2.0f), (int)(size * 0.14f), juce::Justification::centred);
 
+        // tight tracking + narrow band, kept above the amber dot's travel arc
         g.setColour(juce::Colour(0xFF6B6353).withAlpha(enabled ? 1.0f : 0.5f));
-        g.setFont(aurora::mono(size * 0.066f).withExtraKerningFactor(0.10f));
-        g.drawText(label, (int)(cx - rDisc), (int)(cy + size * 0.05f),
-                   (int)(rDisc * 2.0f), (int)(size * 0.09f), juce::Justification::centred);
+        g.setFont(aurora::mono(size * 0.060f).withExtraKerningFactor(0.02f));
+        g.drawFittedText(label,
+                         (int)(cx - rDisc * 0.85f), (int)(cy + size * 0.045f),
+                         (int)(rDisc * 1.7f), (int)(size * 0.075f),
+                         juce::Justification::centred, 1, 0.9f);
     }
 }
 
@@ -489,13 +492,20 @@ void ResponseDisplay::paint(juce::Graphics& g)
     g.setColour(aurora::graphLine.withAlpha(0.16f));
     g.drawHorizontalLine((int)yForDb(0.0f, h), 4.0f, w - 4.0f);
 
-    // Live spectrum — translucent gradient-filled analyzer + crisp top line
+    // Live spectrum — translucent gradient-filled analyzer + crisp top line.
+    // The analyzer uses its own, deeper dB scale (+12..-90) than the response
+    // graph, so the body of the spectrum fills the display instead of only
+    // the peaks poking up from the bottom edge.
     {
+        static constexpr float kSpecTop = 12.0f, kSpecBot = -90.0f;
+        auto ySpec = [h](float db) {
+            return (kSpecTop - juce::jlimit(kSpecBot, kSpecTop, db))
+                 / (kSpecTop - kSpecBot) * h; };
+
         juce::Path spec;
         spec.startNewSubPath(0.0f, h);
         for (int p = 0; p < kSpecPoints; ++p)
-            spec.lineTo((float)p / (kSpecPoints - 1) * w,
-                        juce::jlimit(0.0f, h, yForDb(specDisp[p], h)));
+            spec.lineTo((float)p / (kSpecPoints - 1) * w, ySpec(specDisp[p]));
         spec.lineTo(w, h);
         spec.closeSubPath();
 
@@ -509,7 +519,7 @@ void ResponseDisplay::paint(juce::Graphics& g)
         for (int p = 0; p < kSpecPoints; ++p)
         {
             const float sx = (float)p / (kSpecPoints - 1) * w;
-            const float sy = juce::jlimit(0.0f, h, yForDb(specDisp[p], h));
+            const float sy = ySpec(specDisp[p]);
             if (p == 0) specLine.startNewSubPath(sx, sy);
             else        specLine.lineTo(sx, sy);
         }
@@ -885,6 +895,12 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
     dstAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         apvts, ParamID::fltModDest, dstBox);
 
+    // ---- Oversampling selector (header) ----
+    osBox.addItemList({ "1x", "4x", "8x" }, 1);
+    content.addAndMakeVisible(osBox);
+    osAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, ParamID::filterOversamp, osBox);
+
     // ---- LFO engine ----
     const char* waveNames[4] = { "SINE", "TRI", "SQR", "RND" };
     for (int i = 0; i < 4; ++i)
@@ -936,7 +952,7 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
             g.drawText(val, well.toNearestInt(), juce::Justification::centred);
         };
         const auto* pMix = apvts.getRawParameterValue(ParamID::filterMix);
-        readout(1056, "OVERSAMPLING", "1x", 52);
+        label(1036, 24, 80, "OVERSAMPLING", juce::Justification::centred);
         readout(1128, "MIX",
                 juce::String(juce::roundToInt((pMix ? pMix->load() : 1.0f) * 100.0f)) + " %", 52);
 
@@ -1032,10 +1048,15 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
                 g.drawText(val, x + 92, cy - 7, 100, 14, juce::Justification::centredLeft);
                 return x;
             };
-            const float srK = analysis.sampleRate.load() / 1000.0f;
-            stat(130, "SAMPLE RATE",  juce::String(srK, 1) + " kHz");
-            stat(360, "OVERSAMPLING", "1x");
-            stat(590, "LATENCY",      "0.00 ms");
+            const float sr  = juce::jmax(1.0f, analysis.sampleRate.load());
+            const auto* pOs = apvts.getRawParameterValue(ParamID::filterOversamp);
+            static const char* osNames[3] = { "1x", "4x", "8x" };
+            const int osI = pOs ? juce::jlimit(0, 2, (int)pOs->load()) : 0;
+            const float latMs = (float)getAudioProcessor()->getLatencySamples() / sr * 1000.0f;
+
+            stat(130, "SAMPLE RATE",  juce::String(sr / 1000.0f, 1) + " kHz");
+            stat(360, "OVERSAMPLING", osNames[osI]);
+            stat(590, "LATENCY",      juce::String(latMs, 2) + " ms");
             stat(800, "CPU",          juce::String(analysis.cpuPct.load(), 1) + " %");
             stat(990, "SIGNAL PATH",  "STEREO");
 
@@ -1165,6 +1186,7 @@ void AuroraFilterEditor::showSyncMenu(const juce::String& syncParamId)
     const bool on = pSync && *pSync > 0.5f;
 
     juce::PopupMenu menu;
+    menu.setLookAndFeel(&lnf);   // match the plugin palette (cream / amber highlight)
     menu.addItem(1, "FREE",       true, !on);
     menu.addItem(2, "TEMPO SYNC", true, on);
 
@@ -1274,6 +1296,7 @@ void AuroraFilterEditor::resized()
     prevPreset .setBounds(540,  36, 26, 26);
     presetLabel.setBounds(572,  35, 300, 28);
     nextPreset .setBounds(878,  36, 26, 26);
+    osBox   .setBounds(1044, 40, 64, 22);
     btnA    .setBounds(1216, 38, 38, 26);
     btnB    .setBounds(1256, 38, 38, 26);
     powerBtn.setBounds(1318, 18, 48, 62);
