@@ -5,11 +5,11 @@
 // ============================================================
 namespace
 {
-    constexpr int kHeaderH   = 96;
-    constexpr int kDisplayY  = 106, kDisplayH = 330;            // the spectrum dominates
-    constexpr int kFilterY   = 448, kFilterH  = 200;
-    constexpr int kBottomY   = 660, kBottomH  = 186;
-    constexpr int kFooterY   = 856;
+    constexpr int kHeaderH   = 64;
+    constexpr int kDisplayY  = 78,  kDisplayH = 340;   // header 64 + 14 gap; extra height vs spec fills kH=900
+    constexpr int kFilterY   = 432, kFilterH  = 200;   // 78+340+14
+    constexpr int kBottomY   = 646, kBottomH  = 186;   // 432+200+14
+    constexpr int kFooterY   = 846;                    // 646+186+14
 
     const juce::Rectangle<int> kModPanel  { 16,   kBottomY,  430,  kBottomH };
     const juce::Rectangle<int> kLfoPanel  { 458,  kBottomY,  470,  kBottomH };
@@ -183,16 +183,16 @@ void AuroraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w,
         const juce::String label = s.getProperties().getWithDefault("faceLabel", "").toString();
 
         g.setColour(juce::Colour(0xFF2A2620).withAlpha(enabled ? 1.0f : 0.45f));
-        g.setFont(aurora::mono(size * 0.12f));
-        g.drawText(value, (int)(cx - rDisc), (int)(cy - size * 0.10f),
-                   (int)(rDisc * 2.0f), (int)(size * 0.14f), juce::Justification::centred);
+        g.setFont(aurora::mono(size * 0.148f));   // spec: fontSize=15 in viewBox-100 = 15%
+        g.drawText(value, (int)(cx - rDisc), (int)(cy - size * 0.11f),
+                   (int)(rDisc * 2.0f), (int)(size * 0.15f), juce::Justification::centred);
 
         // tight tracking + narrow band, kept above the amber dot's travel arc
         g.setColour(juce::Colour(0xFF6B6353).withAlpha(enabled ? 1.0f : 0.5f));
-        g.setFont(aurora::mono(size * 0.060f).withExtraKerningFactor(0.02f));
+        g.setFont(aurora::mono(size * 0.046f).withExtraKerningFactor(0.02f));   // spec: 4.6%
         g.drawFittedText(label,
-                         (int)(cx - rDisc * 0.85f), (int)(cy + size * 0.045f),
-                         (int)(rDisc * 1.7f), (int)(size * 0.075f),
+                         (int)(cx - rDisc * 0.85f), (int)(cy + size * 0.052f),
+                         (int)(rDisc * 1.7f), (int)(size * 0.065f),
                          juce::Justification::centred, 1, 0.9f);
     }
 }
@@ -221,23 +221,23 @@ void AuroraLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& b,
         if (sel || highlighted)
         {
             g.setColour(sel ? aurora::cream : aurora::cream.withAlpha(0.45f));
-            g.fillRoundedRectangle(r, 4.0f);
+            g.fillRoundedRectangle(r, 6.0f);
         }
         g.setColour(sel ? aurora::border : aurora::border.withAlpha(0.42f));
-        g.drawRoundedRectangle(r, 4.0f, 1.0f);
+        g.drawRoundedRectangle(r, 6.0f, 1.0f);
 
-        const float lx = r.getX() + 12.0f, ly = r.getCentreY();
+        const float lx = r.getX() + 13.0f, ly = r.getCentreY();
         if (sel)
         {
             g.setColour(aurora::led.withAlpha(0.35f));
-            g.fillEllipse(lx - 5.5f, ly - 5.5f, 11.0f, 11.0f);
+            g.fillEllipse(lx - 6.5f, ly - 6.5f, 13.0f, 13.0f);
             g.setColour(aurora::led);
-            g.fillEllipse(lx - 3.5f, ly - 3.5f, 7.0f, 7.0f);
+            g.fillEllipse(lx - 4.5f, ly - 4.5f, 9.0f, 9.0f);
             g.setColour(aurora::amberLo);
         }
         else
-            g.setColour(aurora::inkFaint);
-        g.drawEllipse(lx - 3.5f, ly - 3.5f, 7.0f, 7.0f, 1.0f);
+            g.setColour(aurora::ledOff);
+        g.drawEllipse(lx - 4.5f, ly - 4.5f, 9.0f, 9.0f, 1.0f);
         return;
     }
 
@@ -260,7 +260,7 @@ void AuroraLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& b, b
 
     auto r = b.getLocalBounds();
     if (optionRow)
-        g.drawText(b.getButtonText(), r.withTrimmedLeft(26).withTrimmedRight(4),
+        g.drawText(b.getButtonText(), r.withTrimmedLeft(30).withTrimmedRight(4),
                    juce::Justification::centredLeft);
     else
         g.drawText(b.getButtonText(), r, juce::Justification::centred);
@@ -479,15 +479,15 @@ void ResponseDisplay::paint(juce::Graphics& g)
                                 juce::Colour(0xFF0B0A08), w * 0.5f, h * 1.6f, true);
         bg.addColour(0.52, juce::Colour(0xFF15140F));
         g.setGradientFill(bg);
-        g.fillRoundedRectangle(0.0f, 0.0f, w, h, 6.0f);
+        g.fillRoundedRectangle(0.0f, 0.0f, w, h, 10.0f);
     }
 
-    // subtle amber log grid
+    // amber log grid — full 10-line frequency set + 6 dB dB steps
     g.setColour(aurora::graphLine.withAlpha(0.07f));
-    for (float f : { 50.f, 100.f, 200.f, 500.f, 1000.f, 2000.f, 5000.f, 10000.f })
+    for (float f : { 20.f, 50.f, 100.f, 200.f, 500.f, 1000.f, 2000.f, 5000.f, 10000.f, 20000.f })
         g.drawVerticalLine((int)xForFreq(f, w), 4.0f, h - 18.0f);
     g.setColour(aurora::graphLine.withAlpha(0.06f));
-    for (float db : { 12.f, -12.f, -24.f })
+    for (float db : { 12.f, 6.f, -6.f, -12.f, -18.f, -24.f, -36.f, -48.f })
         g.drawHorizontalLine((int)yForDb(db, h), 4.0f, w - 4.0f);
     g.setColour(aurora::graphLine.withAlpha(0.16f));
     g.drawHorizontalLine((int)yForDb(0.0f, h), 4.0f, w - 4.0f);
@@ -612,6 +612,15 @@ void ResponseDisplay::paint(juce::Graphics& g)
         g.fillEllipse(nx - 3.4f, ny - 3.4f, 6.8f, 6.8f);
     }
 
+    // CRT phosphor vignette — matches CSS radial-gradient(120% 140% at 50% 0%, transparent 55%, rgba(0,0,0,0.45) 100%)
+    {
+        juce::ColourGradient vign(juce::Colours::transparentBlack, w * 0.5f, h * 0.30f,
+                                   juce::Colour(0x73000000), w * 0.5f, h, true);
+        vign.addColour(0.55, juce::Colours::transparentBlack);
+        g.setGradientFill(vign);
+        g.fillRoundedRectangle(0.0f, 0.0f, w, h, 10.0f);
+    }
+
     // axis labels — dim amber mono
     g.setColour(aurora::graphLine.withAlpha(0.42f));
     g.setFont(aurora::mono(10.0f));
@@ -623,8 +632,8 @@ void ResponseDisplay::paint(juce::Graphics& g)
         const float lx = juce::jlimit(2.0f, w - 38.0f, xForFreq(f, w) - 18.0f);
         g.drawText(lbl, (int)lx, (int)h - 16, 40, 12, juce::Justification::centred);
     }
-    for (float db : { 12.f, 0.f, -12.f, -24.f })
-        g.drawText(juce::String((int)db), 6, (int)yForDb(db, h) - 12, 28, 11,
+    for (float db : { 12.f, 6.f, 0.f, -6.f, -12.f, -18.f, -24.f, -36.f, -48.f })
+        g.drawText(juce::String((int)db), 4, (int)yForDb(db, h) - 6, 28, 11,
                    juce::Justification::centredLeft);
     g.setColour(aurora::graphLine.withAlpha(0.55f));
     g.setFont(aurora::mono(9.5f));
@@ -704,13 +713,13 @@ void LfoScope::paint(juce::Graphics& g)
     const auto* pW = apvts.getRawParameterValue(waveId);
     const int wave = pW ? (int)pW->load() : 0;
 
-    // Two cycles of the selected waveform
+    // Three cycles of the selected waveform (spec: cycles={3})
     juce::Path p;
     juce::Random seeded(42);   // stable preview for RANDOM
     float held = seeded.nextFloat() * 2.0f - 1.0f;
     for (int i = 0; i <= 140; ++i)
     {
-        const float t  = (float)i / 140.0f * 2.0f;
+        const float t  = (float)i / 140.0f * 3.0f;
         const float fr = t - std::floor(t);
         float v = 0.0f;
         switch (wave)
@@ -733,10 +742,10 @@ void LfoScope::paint(juce::Graphics& g)
     g.setColour(aurora::graphLine);
     g.strokePath(p, juce::PathStrokeType(1.6f));
 
-    // Phase cursor
+    // Phase cursor (scaled to 3-cycle display)
     const float ph = analysis.lfoPhase.load();
     g.setColour(aurora::led.withAlpha(0.8f));
-    g.drawVerticalLine((int)(ph * 0.5f * w), 2.0f, h - 2.0f);
+    g.drawVerticalLine((int)(ph / 3.0f * w), 2.0f, h - 2.0f);
 }
 
 // ============================================================
@@ -951,13 +960,13 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
             g.fillRect(0, 0, kW, 120);
         }
 
-        // ---- header: type-only wordmark ----
+        // ---- header: type-only wordmark (fits in 64px header) ----
         g.setColour(aurora::textPrimary);
-        g.setFont(aurora::heading(26.0f).withExtraKerningFactor(0.22f));
-        g.drawText("ALTERED AUDIO", 24, 22, 470, 28, juce::Justification::centredLeft);
+        g.setFont(aurora::heading(24.0f).withExtraKerningFactor(0.22f));
+        g.drawText("ALTERED AUDIO", 24, 10, 470, 26, juce::Justification::centredLeft);
         g.setColour(aurora::amberLo);
-        g.setFont(aurora::heading(12.0f).withExtraKerningFactor(0.14f));
-        g.drawText("FILTER 76", 26, 54, 300, 14, juce::Justification::centredLeft);
+        g.setFont(aurora::heading(11.0f).withExtraKerningFactor(0.14f));
+        g.drawText("FILTER 76", 26, 38, 300, 14, juce::Justification::centredLeft);
 
         const auto label = [&g](int lx, int ly, int lw, const char* t,
                                 juce::Justification j = juce::Justification::centredLeft) {
@@ -967,7 +976,7 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
         };
 
         // header captions + readouts
-        label(prevPreset.getX(), 16, 300, "PRESET", juce::Justification::centredLeft);
+        label(prevPreset.getX(), 6, 300, "PRESET", juce::Justification::centredLeft);
 
         auto readout = [&g, &label](int rx, const char* name, const juce::String& val, int boxW) {
             label(rx, 24, boxW + 20, name, juce::Justification::centred);
@@ -987,11 +996,11 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
         auto panel = [&g](juce::Rectangle<int> r, const char* titleTxt, int ledState) {
             const auto rf = r.toFloat();
             g.setColour(aurora::baseSurface.brighter(0.015f));
-            g.fillRoundedRectangle(rf, 6.0f);
+            g.fillRoundedRectangle(rf, 10.0f);
             g.setColour(juce::Colour(0x66FFFCF4));
             g.fillRect(rf.getX() + 2.0f, rf.getY() + 1.0f, rf.getWidth() - 4.0f, 1.5f);
             g.setColour(aurora::border);
-            g.drawRoundedRectangle(rf, 6.0f, 1.0f);
+            g.drawRoundedRectangle(rf, 10.0f, 1.0f);
 
             if (titleTxt != nullptr)
             {
@@ -1052,9 +1061,9 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
         {
             const auto rf = kFooter.toFloat();
             g.setColour(aurora::warmBeige);
-            g.fillRoundedRectangle(rf, 4.0f);
+            g.fillRoundedRectangle(rf, 6.0f);
             g.setColour(aurora::border);
-            g.drawRoundedRectangle(rf, 4.0f, 1.0f);
+            g.drawRoundedRectangle(rf, 6.0f, 1.0f);
 
             const int cy = kFooter.getCentreY();
             g.setColour(aurora::led.withAlpha(0.35f));
@@ -1416,34 +1425,34 @@ void AuroraFilterEditor::resized()
     const float oy = ((float)getHeight() - kH * scale) * 0.5f;
     content.setTransform(juce::AffineTransform::scale(scale).translated(ox, oy));
 
-    // ---- Header ----
-    prevPreset .setBounds(540,  36, 26, 26);
-    presetLabel.setBounds(572,  35, 300, 28);
-    nextPreset .setBounds(878,  36, 26, 26);
-    saveBtn    .setBounds(910,  36, 52, 26);
-    osBox   .setBounds(1044, 40, 64, 22);
-    btnA    .setBounds(1216, 38, 38, 26);
-    btnB    .setBounds(1256, 38, 38, 26);
-    powerBtn.setBounds(1318, 18, 48, 62);
+    // ---- Header (64px tall, controls centred at y=32) ----
+    prevPreset .setBounds(540,  19, 26, 26);
+    presetLabel.setBounds(572,  19, 300, 26);
+    nextPreset .setBounds(878,  19, 26, 26);
+    saveBtn    .setBounds(910,  19, 52, 26);
+    osBox   .setBounds(1044, 21, 64, 22);
+    btnA    .setBounds(1216, 21, 38, 22);
+    btnB    .setBounds(1256, 21, 38, 22);
+    powerBtn.setBounds(1318,  6, 44, 58);   // circle d=44, LED at ~60px
 
     // ---- Display + OUTPUT meter panel ----
     display.setBounds(16, kDisplayY, kKnobPanel.getRight() - 16 - 14, kDisplayH);
     meters .setBounds(kMeterPanel.getX() + (kMeterPanel.getWidth() - 66) / 2,
                       kMeterPanel.getY() + 38, 66, kMeterPanel.getHeight() - 58);
 
-    // ---- FILTER TYPE option list ----
+    // ---- FILTER TYPE option list (26px rows, 6px gap = 32px step) ----
     for (int i = 0; i < 6; ++i)
-        typeBtns[i].setBounds(kTypePanel.getX() + 10, kTypePanel.getY() + 34 + i * 27,
-                              kTypePanel.getWidth() - 20, 24);
+        typeBtns[i].setBounds(kTypePanel.getX() + 10, kTypePanel.getY() + 30 + i * 32,
+                              kTypePanel.getWidth() - 20, 26);
 
     // ---- SLOPE + MODE option lists ----
     {
         const int sx = kSlopePanel.getX() + 10, sw = kSlopePanel.getWidth() - 20;
-        slope12.setBounds(sx, kSlopePanel.getY() + 30, sw, 23);
-        slope24.setBounds(sx, kSlopePanel.getY() + 55, sw, 23);
-        slope48.setBounds(sx, kSlopePanel.getY() + 80, sw, 23);
-        modeAnalog.setBounds(sx, kSlopePanel.getY() + 128, sw, 23);
-        modeClean .setBounds(sx, kSlopePanel.getY() + 153, sw, 23);
+        slope12.setBounds(sx, kSlopePanel.getY() + 28, sw, 26);
+        slope24.setBounds(sx, kSlopePanel.getY() + 58, sw, 26);
+        slope48.setBounds(sx, kSlopePanel.getY() + 88, sw, 26);
+        modeAnalog.setBounds(sx, kSlopePanel.getY() + 124, sw, 26);
+        modeClean .setBounds(sx, kSlopePanel.getY() + 154, sw, 26);
     }
 
     // ---- hero face knobs + GAIN at the right of the knob panel ----
@@ -1471,7 +1480,7 @@ void AuroraFilterEditor::resized()
         const int px = kLfoPanel.getX(), py = kLfoPanel.getY();
         for (int i = 0; i < 4; ++i)
             waveBtns[i].setBounds(px + 16 + i * 56, py + 34, 50, 24);
-        lfoScope.setBounds(px + 16, py + 68, 208, 100);
+        lfoScope.setBounds(px + 16, py + 68, 208, 52);    // spec height 52px
         rateKnob .slider.setBounds(px + 238, py + 64, 72, 60 + 17);
         depthKnob.slider.setBounds(px + 314, py + 64, 72, 60 + 17);
         phaseKnob.slider.setBounds(px + 390, py + 64, 72, 60 + 17);
@@ -1480,7 +1489,7 @@ void AuroraFilterEditor::resized()
     // ---- ENVELOPE FOLLOWER panel ----
     {
         const int px = kEnvPanel.getX(), py = kEnvPanel.getY();
-        envScope.setBounds(px + 16, py + 44, 180, 124);
+        envScope.setBounds(px + 16, py + 44, 180, 66);    // spec height 66px
         atkKnob .slider.setBounds(px + 208, py + 64, 72, 60 + 17);
         relKnob .slider.setBounds(px + 284, py + 64, 72, 60 + 17);
         sensKnob.slider.setBounds(px + 360, py + 64, 72, 60 + 17);

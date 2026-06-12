@@ -138,7 +138,7 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        g.setColour(juce::Colour(0xC0100D0A));
+        g.setColour(juce::Colour(0x8C171717));   // --overlay-scrim: rgba(23,23,23,0.55)
         g.fillAll();
 
         const auto dlg = dialogBounds();
@@ -362,7 +362,7 @@ private:
     float specWork[kSpecPoints] = {};
 
     static constexpr float kMinF = 20.0f, kMaxF = 20000.0f;
-    static constexpr float kDbTop = 24.0f, kDbBot = -36.0f;
+    static constexpr float kDbTop = 12.0f, kDbBot = -60.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ResponseDisplay)
 };
