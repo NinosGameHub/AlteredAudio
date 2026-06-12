@@ -35,7 +35,7 @@ void FilterModule::reset()
     outSm  .setCurrentAndTargetValue(outSm.getTargetValue());
 }
 
-int FilterModule::planSections(FilterType type, int slope, float q, Section out[2])
+int FilterModule::planSections(FilterType type, int slope, float q, Section out[4])
 {
     const bool isLPHP = (type == FilterType::LowPass || type == FilterType::HighPass);
 
@@ -45,16 +45,27 @@ int FilterModule::planSections(FilterType type, int slope, float q, Section out[
         return 1;
     }
 
-    // 24 dB/oct — 4th-order Butterworth; user Q scales the resonant section
+    // Butterworth cascades; user Q scales the most resonant section
     const float qScale = juce::jmax(0.1f, q) / 0.7071f;
-    out[0] = { type, 0.5412f };
-    out[1] = { type, 1.3066f * qScale };
-    return 2;
+
+    if (slope == 1)   // 24 dB/oct — 4th order
+    {
+        out[0] = { type, 0.5412f };
+        out[1] = { type, 1.3066f * qScale };
+        return 2;
+    }
+
+    // 48 dB/oct — 8th order
+    out[0] = { type, 0.5098f };
+    out[1] = { type, 0.6013f };
+    out[2] = { type, 0.9000f };
+    out[3] = { type, 2.5629f * qScale };
+    return 4;
 }
 
 void FilterModule::applyControl(float freq, float q, float gainDb)
 {
-    Section plan[2];
+    Section plan[4];
     const int n = planSections(type, slope, q, plan);
 
     // Topology change (slope/type switch) — clear state so stale samples
@@ -110,7 +121,7 @@ void FilterModule::process(juce::AudioBuffer<float>& buffer)
             {
                 float x = buffer.getSample(ch, s);
 
-                if (amt > 0.0001f)
+                if (analogMode && amt > 0.0001f)
                     x += amt * (tanhApprox(x * dLin) * norm - x);
 
                 for (int sec = 0; sec < numSections; ++sec)
@@ -127,8 +138,8 @@ void FilterModule::process(juce::AudioBuffer<float>& buffer)
 float FilterModule::responseDb(FilterType type, int slope, float freq, float q,
                                float gainDb, float atFreqHz, double sampleRate)
 {
-    Section plan[2];
-    const int n = planSections(type, juce::jlimit(0, 1, slope), q, plan);
+    Section plan[4];
+    const int n = planSections(type, juce::jlimit(0, 2, slope), q, plan);
 
     double db = 0.0;
     for (int i = 0; i < n; ++i)

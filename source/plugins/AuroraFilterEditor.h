@@ -325,7 +325,8 @@ private:
     // Filter section
     juce::TextButton typeBtns[6];   // LP HP BP NOTCH PEAK SHELF
     AuroraKnob freqKnob, resKnob, driveKnob, mixKnob, outKnob, gainKnob;
-    juce::TextButton slope12 { "12" }, slope24 { "24" };
+    juce::TextButton slope12 { "12" }, slope24 { "24" }, slope48 { "48" };
+    juce::TextButton modeAnalog { "ANALOG" }, modeClean { "CLEAN" };
 
     // Header
     juce::TextButton prevPreset { "<" }, nextPreset { ">" };

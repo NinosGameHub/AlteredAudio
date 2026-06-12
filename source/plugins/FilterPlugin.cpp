@@ -19,6 +19,7 @@ public:
         p_q         = raw(ParamID::filterQ);
         p_gain      = raw(ParamID::filterGain);
         p_slope     = raw(ParamID::filterSlope);
+        p_mode      = raw(ParamID::filterMode);
         p_drive     = raw(ParamID::filterDrive);
         p_mix       = raw(ParamID::filterMix);
         p_output    = raw(ParamID::filterOutput);
@@ -53,7 +54,8 @@ public:
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterFreq,  1}, "Frequency",   NR(20.0f, 20000.0f, 0.0f, 0.25f), 1000.0f));
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterQ,     1}, "Resonance",   NR(0.1f, 24.0f, 0.0f, 0.4f),      0.707f));
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterGain,  1}, "Gain (dB)",   NR(-24.0f, 24.0f),                 0.0f));
-        g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::filterSlope, 1}, "Slope",       juce::StringArray{"12","24"},      0));
+        g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::filterSlope, 1}, "Slope",       juce::StringArray{"12","24","48"}, 0));
+        g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::filterMode,  1}, "Mode",        juce::StringArray{"Analog","Clean"}, 0));
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterDrive, 1}, "Drive (dB)",  NR(0.0f, 24.0f),                   0.0f));
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterMix,   1}, "Mix",         NR(0.0f, 1.0f),                    1.0f));
         g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::filterOutput,1}, "Output (dB)", NR(-24.0f, 24.0f),                 0.0f));
@@ -154,6 +156,7 @@ protected:
         mod->setBypassed(*p_bypass > 0.5f);
         mod->setType(static_cast<BiquadFilter::Type>((int)*p_type));
         mod->setSlope((int)*p_slope);
+        mod->setAnalogMode((int)*p_mode == 0);
         mod->setGainDb(*p_gain);
         mod->setMix(*p_mix);
         mod->setOutputDb(*p_output);
@@ -179,14 +182,11 @@ protected:
             const int   l     = src - 1;
             const float depth = *p_lfoDepth[l];
             const float wave  = lfoValue_[l];   // raw -1..1
-            modOn = depth > 0.001f;
+            // amount sets direction and strength: +amount = up only,
+            // -amount = down only, 0 = no modulation (never bidirectional)
+            modOn = depth > 0.001f && std::abs(amt) > 0.005f;
             if (modOn)
-            {
-                if (std::abs(amt) < 0.005f)
-                    m = wave * depth;                          // amount 0: bipolar, depth sets range both ways
-                else
-                    m = (wave + 1.0f) * 0.5f * depth * amt;    // +amount: up only, -amount: down only
-            }
+                m = (wave + 1.0f) * 0.5f * depth * amt;
         }
 
         if (modOn)
@@ -243,6 +243,7 @@ private:
     std::atomic<float>* p_bypass = nullptr;  std::atomic<float>* p_type   = nullptr;
     std::atomic<float>* p_freq   = nullptr;  std::atomic<float>* p_q      = nullptr;
     std::atomic<float>* p_gain   = nullptr;  std::atomic<float>* p_slope  = nullptr;
+    std::atomic<float>* p_mode   = nullptr;
     std::atomic<float>* p_drive  = nullptr;  std::atomic<float>* p_mix    = nullptr;
     std::atomic<float>* p_output = nullptr;
     std::atomic<float>* p_modSource = nullptr;

@@ -171,14 +171,14 @@ void AuroraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w,
         const juce::String label = s.getProperties().getWithDefault("faceLabel", "").toString();
 
         g.setColour(juce::Colour(0xFF2A2620));
-        g.setFont(aurora::mono(size * 0.15f));
-        g.drawText(value, (int)(cx - rDisc), (int)(cy - size * 0.115f),
-                   (int)(rDisc * 2.0f), (int)(size * 0.16f), juce::Justification::centred);
+        g.setFont(aurora::mono(size * 0.12f));
+        g.drawText(value, (int)(cx - rDisc), (int)(cy - size * 0.10f),
+                   (int)(rDisc * 2.0f), (int)(size * 0.14f), juce::Justification::centred);
 
         g.setColour(juce::Colour(0xFF6B6353));
-        g.setFont(aurora::mono(size * 0.048f).withExtraKerningFactor(0.12f));
-        g.drawText(label, (int)(cx - rDisc), (int)(cy + size * 0.055f),
-                   (int)(rDisc * 2.0f), (int)(size * 0.07f), juce::Justification::centred);
+        g.setFont(aurora::mono(size * 0.066f).withExtraKerningFactor(0.10f));
+        g.drawText(label, (int)(cx - rDisc), (int)(cy + size * 0.05f),
+                   (int)(rDisc * 2.0f), (int)(size * 0.09f), juce::Justification::centred);
     }
 }
 
@@ -762,15 +762,20 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
     atkRC.fn = [this]() { showSyncMenu(ParamID::fltEnvAtkSync); };
     relRC.fn = [this]() { showSyncMenu(ParamID::fltEnvRelSync); };
 
-    // ---- Slope — LED option rows ----
+    // ---- Slope + mode — LED option rows ----
     slope12.setButtonText("12 dB");
     slope24.setButtonText("24 dB");
-    slope12.getProperties().set("optionRow", true);
-    slope24.getProperties().set("optionRow", true);
+    slope48.setButtonText("48 dB");
     slope12.onClick = [this]() { setParam(ParamID::filterSlope, 0.0f); };
     slope24.onClick = [this]() { setParam(ParamID::filterSlope, 1.0f); };
-    content.addAndMakeVisible(slope12);
-    content.addAndMakeVisible(slope24);
+    slope48.onClick = [this]() { setParam(ParamID::filterSlope, 2.0f); };
+    modeAnalog.onClick = [this]() { setParam(ParamID::filterMode, 0.0f); };
+    modeClean .onClick = [this]() { setParam(ParamID::filterMode, 1.0f); };
+    for (auto* b : { &slope12, &slope24, &slope48, &modeAnalog, &modeClean })
+    {
+        b->getProperties().set("optionRow", true);
+        content.addAndMakeVisible(*b);
+    }
 
     // ---- Header: presets, A/B, power ----
     presetLabel.setJustificationType(juce::Justification::centred);
@@ -936,6 +941,7 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
         // section sub-labels
         label(kModPanel.getX() + 18, kModPanel.getY() + 34,  200, "SOURCE");
         label(kModPanel.getX() + 18, kModPanel.getY() + 98,  200, "DESTINATION");
+        label(kSlopePanel.getX() + 18, kSlopePanel.getY() + 112, 100, "MODE");
 
         // ---- footer: warm strip with SYSTEM LED + inline stats ----
         {
@@ -1126,6 +1132,11 @@ void AuroraFilterEditor::updateButtonStates()
     const int slope = raw(ParamID::filterSlope);
     color(slope12, slope == 0);
     color(slope24, slope == 1);
+    color(slope48, slope == 2);
+
+    const int mode = raw(ParamID::filterMode);
+    color(modeAnalog, mode == 0);
+    color(modeClean,  mode == 1);
 
     const int src = raw(ParamID::fltModSource);
     for (int i = 0; i < 4; ++i) color(srcBtns[i], src == i);
@@ -1206,20 +1217,26 @@ void AuroraFilterEditor::resized()
         typeBtns[i].setBounds(kTypePanel.getX() + 10, kTypePanel.getY() + 34 + i * 27,
                               kTypePanel.getWidth() - 20, 24);
 
-    // ---- SLOPE list + GAIN knob ----
-    slope12.setBounds(kSlopePanel.getX() + 10, kSlopePanel.getY() + 34, kSlopePanel.getWidth() - 20, 24);
-    slope24.setBounds(kSlopePanel.getX() + 10, kSlopePanel.getY() + 61, kSlopePanel.getWidth() - 20, 24);
-    gainKnob.slider.setBounds(kSlopePanel.getCentreX() - 42, kSlopePanel.getY() + 108, 84, 66 + 17);
-
-    // ---- hero face knobs, evenly spread across the knob panel ----
+    // ---- SLOPE + MODE option lists ----
     {
-        const int slotW = kKnobPanel.getWidth() / 5;
+        const int sx = kSlopePanel.getX() + 10, sw = kSlopePanel.getWidth() - 20;
+        slope12.setBounds(sx, kSlopePanel.getY() + 30, sw, 23);
+        slope24.setBounds(sx, kSlopePanel.getY() + 55, sw, 23);
+        slope48.setBounds(sx, kSlopePanel.getY() + 80, sw, 23);
+        modeAnalog.setBounds(sx, kSlopePanel.getY() + 128, sw, 23);
+        modeClean .setBounds(sx, kSlopePanel.getY() + 153, sw, 23);
+    }
+
+    // ---- hero face knobs + GAIN at the right of the knob panel ----
+    {
+        const int slotW = 190;
         const int knobS = 150;
         const int ky    = kFilterY + (kFilterH - knobS) / 2;
         AuroraKnob* heroes[5] = { &freqKnob, &resKnob, &driveKnob, &mixKnob, &outKnob };
         for (int i = 0; i < 5; ++i)
             heroes[i]->slider.setBounds(kKnobPanel.getX() + i * slotW + (slotW - knobS) / 2,
                                         ky, knobS, knobS);
+        gainKnob.slider.setBounds(kKnobPanel.getX() + 5 * slotW + 9, kFilterY + 62, 72, 60 + 17);
     }
 
     // ---- MODULATION panel ----

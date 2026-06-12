@@ -15,7 +15,8 @@ public:
     // All continuous parameters are smoothed inside process() — callers can
     // update at block rate (or from LFOs) without coefficient-step clicks.
     void setType(FilterType t)  { type = t; }
-    void setSlope(int s)        { slope = juce::jlimit(0, 1, s); }
+    void setSlope(int s)        { slope = juce::jlimit(0, 2, s); }
+    void setAnalogMode(bool on) { analogMode = on; }   // Clean mode bypasses drive saturation
     void setFrequency(float hz) { freqSm.setTargetValue(juce::jlimit(20.0f, 20000.0f, hz)); }
     void setQ(float q_)         { qSm.setTargetValue(juce::jlimit(0.05f, 24.0f, q_)); }
     void setGainDb(float dB)    { gainSm.setTargetValue(juce::jlimit(-24.0f, 24.0f, dB)); }
@@ -30,7 +31,7 @@ public:
 
 private:
     struct Section { FilterType type; float q; };
-    static int planSections(FilterType, int slope, float q, Section out[2]);
+    static int planSections(FilterType, int slope, float q, Section out[4]);
 
     // Re-plans and updates section coefficients from smoothed control values.
     void applyControl(float freq, float q, float gainDb);
@@ -42,14 +43,15 @@ private:
     }
 
     static constexpr int kMaxChannels   = 2;
-    static constexpr int kMaxSections   = 2;    // 24 dB/oct = 2 biquads
+    static constexpr int kMaxSections   = 4;    // 48 dB/oct = 4 biquads
     static constexpr int kCtrlInterval  = 16;   // coefficient update granularity (samples)
 
     BiquadFilter sections[kMaxSections];        // each holds stereo state
     int          numSections = 1;
 
     FilterType type  = FilterType::LowPass;
-    int        slope = 0;                       // 0 = 12 dB/oct, 1 = 24 dB/oct
+    int        slope = 0;                       // 0 = 12, 1 = 24, 2 = 48 dB/oct
+    bool       analogMode = true;               // false = Clean: no drive saturation
 
     // Frequency glides multiplicatively (log-domain) — equal musical speed
     // across the range; the rest are linear.
