@@ -313,7 +313,7 @@ WearOverlay::WearOverlay()
 
     // ---- wear mottle: 4-octave tiling value noise, 720px tile.
     //      CSS: feTurbulence baseFreq 0.008/0.012, slope 1.6, intercept -0.3,
-    //      multiply at 0.30 (wear 100%) → baked as black @ alpha (1-v)*0.30
+    //      multiply; alpha scaled by the wear amount (currently 10%)
     {
         constexpr int N = 720, kOct = 4;
         mottle = juce::Image(juce::Image::ARGB, N, N, true);
@@ -353,7 +353,7 @@ WearOverlay::WearOverlay()
                     total += amp;
                 }
                 v = juce::jlimit(0.0f, 1.0f, (v / total) * 1.6f - 0.3f);
-                const float a = (1.0f - v) * 0.30f;
+                const float a = (1.0f - v) * 0.003f;  // wear 1% (of 0.30 max)
                 bd.setPixelColour(x, y, juce::Colours::black.withAlpha(a));
             }
     }
