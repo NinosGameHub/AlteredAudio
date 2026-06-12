@@ -132,24 +132,6 @@ private:
 };
 
 // ============================================================
-//  WearOverlay — worn-plastic finish, ported from the design
-//  system's surface-finish tweaks (wear 100%, grain 25%):
-//  low-frequency mottle (multiply), fine photographic grain
-//  (overlay), corner vignette and a vertical light sheen.
-//  Blend modes are baked into alpha textures since JUCE
-//  composites normally: multiply == black @ alpha (1-v),
-//  overlay ≈ white/black speckle at half strength.
-// ============================================================
-class WearOverlay : public juce::Component
-{
-public:
-    WearOverlay();
-    void paint(juce::Graphics&) override;
-private:
-    juce::Image mottle, grain;
-};
-
-// ============================================================
 //  GainEditor — resizable, fixed 820x820 design space
 // ============================================================
 class GainEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -196,7 +178,6 @@ private:
     VerticalMeter inMeter, outMeter;
     HoldMeter     stripL { false }, stripR { true };
     ClickZone     peakReset;
-    WearOverlay   wear;
 
     float heldPeakDb = -120.0f;   // infinite hold, click PEAK cell to reset
 

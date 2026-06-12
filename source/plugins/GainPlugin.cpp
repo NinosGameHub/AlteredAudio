@@ -24,7 +24,7 @@ public:
         using Grp = juce::AudioProcessorParameterGroup;
         auto g = std::make_unique<Grp>("gain", "Gain", "|");
         g->addChild(std::make_unique<juce::AudioParameterBool>  (PID{ParamID::gainBypass,  1}, "Bypass",    false));
-        g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::gainDb,      1}, "Gain (dB)", NR(-24.0f, 24.0f), 0.0f));
+        g->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::gainDb,      1}, "Gain (dB)", NR(-24.0f, 24.0f, 0.1f), 0.0f));
         g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::gainMode,    1}, "Mode",      juce::StringArray{"Stereo","Mono","Side"}, 0));
         g->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::gainOversamp,1}, "Oversampling", juce::StringArray{"1x","4x","8x"}, 0));
         layout.add(std::move(g));

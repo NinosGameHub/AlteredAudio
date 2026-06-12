@@ -304,115 +304,6 @@ void HoldMeter::paint(juce::Graphics& g)
 }
 
 // ============================================================
-//  WearOverlay
-// ============================================================
-
-WearOverlay::WearOverlay()
-{
-    setInterceptsMouseClicks(false, false);
-
-    // ---- wear mottle: 4-octave tiling value noise, 720px tile.
-    //      CSS: feTurbulence baseFreq 0.008/0.012, slope 1.6, intercept -0.3,
-    //      multiply; alpha scaled by the wear amount (currently 10%)
-    {
-        constexpr int N = 720, kOct = 4;
-        mottle = juce::Image(juce::Image::ARGB, N, N, true);
-
-        juce::Random rng(11);
-        int cells[kOct];
-        std::vector<float> lat[kOct];
-        for (int o = 0; o < kOct; ++o)
-        {
-            cells[o] = 6 << o;                       // 6,12,24,48 cells per tile
-            lat[o].resize((size_t)(cells[o] * cells[o]));
-            for (auto& v : lat[o]) v = rng.nextFloat();
-        }
-        auto sample = [&](int o, float u, float v) {   // bilinear, wrapping
-            const int n = cells[o];
-            const float fx = u * (float)n, fy = v * (float)n;
-            const int x0 = (int)fx % n, y0 = (int)fy % n;
-            const int x1 = (x0 + 1) % n, y1 = (y0 + 1) % n;
-            float tx = fx - std::floor(fx), ty = fy - std::floor(fy);
-            tx = tx * tx * (3.0f - 2.0f * tx);         // smoothstep
-            ty = ty * ty * (3.0f - 2.0f * ty);
-            const auto& L = lat[o];
-            const float a = L[(size_t)(y0 * n + x0)], b = L[(size_t)(y0 * n + x1)];
-            const float c = L[(size_t)(y1 * n + x0)], d = L[(size_t)(y1 * n + x1)];
-            return juce::jmap(ty, juce::jmap(tx, a, b), juce::jmap(tx, c, d));
-        };
-
-        juce::Image::BitmapData bd(mottle, juce::Image::BitmapData::writeOnly);
-        for (int y = 0; y < N; ++y)
-            for (int x = 0; x < N; ++x)
-            {
-                const float u = (float)x / N, w = (float)y / N;
-                float v = 0.0f, amp = 0.5f, total = 0.0f;
-                for (int o = 0; o < kOct; ++o, amp *= 0.5f)
-                {
-                    v += sample(o, u, w) * amp;
-                    total += amp;
-                }
-                v = juce::jlimit(0.0f, 1.0f, (v / total) * 1.6f - 0.3f);
-                const float a = (1.0f - v) * 0.003f;  // wear 1% (of 0.30 max)
-                bd.setPixelColour(x, y, juce::Colours::black.withAlpha(a));
-            }
-    }
-
-    // ---- grain: high-contrast speckle, 180px tile.
-    //      CSS: feTurbulence baseFreq 0.4, slope 3.2, intercept -1.1,
-    //      overlay at 0.1125 (grain 25%) → white/black speckle
-    {
-        constexpr int N = 180;
-        grain = juce::Image(juce::Image::ARGB, N, N, true);
-        juce::Random rng(7);
-        juce::Image::BitmapData bd(grain, juce::Image::BitmapData::writeOnly);
-        for (int y = 0; y < N; ++y)
-            for (int x = 0; x < N; ++x)
-            {
-                const float t = juce::jlimit(0.0f, 1.0f, rng.nextFloat() * 3.2f - 1.1f);
-                const float d = t - 0.5f;
-                const float a = std::abs(d) * 2.0f * 0.1125f;
-                bd.setPixelColour(x, y, (d > 0.0f ? juce::Colours::white
-                                                  : juce::Colours::black).withAlpha(a));
-            }
-    }
-}
-
-void WearOverlay::paint(juce::Graphics& g)
-{
-    const float w = (float)getWidth(), h = (float)getHeight();
-
-    // wear mottle (multiply)
-    g.setTiledImageFill(mottle, 0, 0, 1.0f);
-    g.fillRect(getLocalBounds());
-
-    // corner vignette (multiply, very soft — matches --tex-vignette)
-    {
-        juce::ColourGradient vg(juce::Colours::transparentBlack, w * 0.5f, h * 0.42f,
-                                juce::Colour(0xFF3A3122).withAlpha(0.10f),
-                                w * 0.5f, h * 0.42f + h * 0.95f, true);
-        vg.addColour(0.55, juce::Colours::transparentBlack);
-        g.setGradientFill(vg);
-        g.fillRect(getLocalBounds());
-    }
-
-    // fine grain (overlay)
-    g.setTiledImageFill(grain, 0, 0, 1.0f);
-    g.fillRect(getLocalBounds());
-
-    // faceplate sheen (soft-light approx): light falls from the top,
-    // faint shade pools at the bottom — matches --faceplate-sheen @ 45%
-    {
-        juce::ColourGradient sh(juce::Colour(0xFFFFFCF0).withAlpha(0.15f), 0.0f, 0.0f,
-                                juce::Colour(0xFF3A3224).withAlpha(0.10f), 0.0f, h, false);
-        sh.addColour(0.32, juce::Colours::transparentBlack);
-        sh.addColour(0.62, juce::Colours::transparentBlack);
-        g.setGradientFill(sh);
-        g.fillRect(getLocalBounds());
-    }
-}
-
-// ============================================================
 //  GainEditor
 // ============================================================
 
@@ -428,11 +319,13 @@ GainEditor::GainEditor(juce::AudioProcessor& proc,
     gainKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     gainKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     gainKnob.setDoubleClickReturnValue(true, 0.0);
-    gainKnob.textFromValueFunction = [](double v) {
-        return (v >= 0.05 ? "+" : "") + juce::String(v, 1); };
     content.addAndMakeVisible(gainKnob);
     gainAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         apvts, ParamID::gainDb, gainKnob);
+    // AFTER the attachment — SliderAttachment installs the parameter's own
+    // 2-decimal formatter and would clobber this if set earlier
+    gainKnob.textFromValueFunction = [](double v) {
+        return (v >= 0.05 ? "+" : "") + juce::String(v, 1); };
     gainKnob.updateText();
 
     modeBox.addItemList({ "STEREO", "MONO", "SIDE" }, 1);
@@ -459,8 +352,6 @@ GainEditor::GainEditor(juce::AudioProcessor& proc,
 
     peakReset.fn = [this]() { heldPeakDb = -120.0f; };
     content.addAndMakeVisible(peakReset);
-
-    content.addAndMakeVisible(wear);   // last child — texture sits over everything
 
     // ---- Static faceplate ----
     content.onPaint = [this](juce::Graphics& g) {
@@ -631,7 +522,6 @@ void GainEditor::resized()
     content.setTransform(juce::AffineTransform::scale(scale).translated(ox, oy));
 
     powerBtn.setBounds(kW - 82, 6, 44, 58);
-    wear.setBounds(0, 0, kW, kH);
 
     gainKnob.setBounds(kKnobCX - kKnobD / 2, kKnobCY - kKnobD / 2, kKnobD, kKnobD);
 
