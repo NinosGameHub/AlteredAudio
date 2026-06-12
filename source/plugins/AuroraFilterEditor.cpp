@@ -72,8 +72,8 @@ namespace
 AuroraLookAndFeel::AuroraLookAndFeel()
 {
     // Slider text boxes are dark amber readout wells
-    setColour(juce::Slider::textBoxTextColourId,       aurora::graphLine);
-    setColour(juce::Slider::textBoxBackgroundColourId, aurora::graphBg);
+    setColour(juce::Slider::textBoxTextColourId,       aurora::textPrimary);
+    setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
     setColour(juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
     setColour(juce::Label::textColourId,               aurora::textPrimary);
     setColour(juce::TextButton::textColourOffId,       aurora::textPrimary);
@@ -202,8 +202,8 @@ juce::Label* AuroraLookAndFeel::createSliderTextBox(juce::Slider& s)
     auto* l = LookAndFeel_V4::createSliderTextBox(s);
     l->setFont(aurora::mono(11.0f));
     l->setJustificationType(juce::Justification::centred);
-    l->setColour(juce::Label::backgroundColourId, aurora::graphBg);
-    l->setColour(juce::Label::textColourId,       aurora::graphLine);
+    l->setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
+    l->setColour(juce::Label::textColourId,       aurora::textPrimary);
     l->setColour(juce::Label::outlineColourId,    juce::Colours::transparentBlack);
     return l;
 }
@@ -1348,17 +1348,27 @@ void AuroraFilterEditor::updateButtonStates()
 
     // ---- enablement: a knob that can't affect the sound is disabled ----
     const int src = raw(ParamID::fltModSource);
+    const bool modOn = (src != 0);
     const bool lfoOn = (src == 1 || src == 2);
+    const bool envOn = (src == 3);
 
     gainKnob  .slider.setEnabled(type == 5 || type == 6 || type == 7);  // PEAK / shelves
     driveKnob .slider.setEnabled(raw(ParamID::filterMode) == 0);        // CLEAN bypasses drive
-    amountKnob.slider.setEnabled(src != 0);
+
+    // MODULATION panel — destination and amount only matter when a source is active
+    dstBox        .setEnabled(modOn);
+    amountKnob.slider.setEnabled(modOn);
+
+    // LFO ENGINE panel
+    for (int i = 0; i < 4; ++i) waveBtns[i].setEnabled(lfoOn);
     rateKnob  .slider.setEnabled(lfoOn);
     depthKnob .slider.setEnabled(lfoOn);
     phaseKnob .slider.setEnabled(lfoOn);
-    atkKnob   .slider.setEnabled(src == 3);
-    relKnob   .slider.setEnabled(src == 3);
-    sensKnob  .slider.setEnabled(src == 3);
+
+    // ENVELOPE FOLLOWER panel
+    atkKnob   .slider.setEnabled(envOn);
+    relKnob   .slider.setEnabled(envOn);
+    sensKnob  .slider.setEnabled(envOn);
 }
 
 void AuroraFilterEditor::timerCallback()
