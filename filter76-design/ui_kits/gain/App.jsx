@@ -5,7 +5,18 @@
 //   L/R peak strip with hold markers · footer cells MODE | PEAK | LUFS |
 //   OVERSAMPLING.
 (function () {
-  const { AF_Knob, AF_Meter, AF_Select, AF_PowerButton, AF_Panel } = window;
+  const { AF_Knob, AF_Meter, AF_Select, AF_PowerButton, AF_Panel,
+          useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSlider } = window;
+
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "surface": "worn",
+    "grain": 25,
+    "wear": 100,
+    "gradient": 45
+  }/*EDITMODE-END*/;
+
+  // stub keeps the hook call unconditional when the tweaks shell isn't loaded
+  const useT = typeof useTweaks === "function" ? useTweaks : (d) => [d, () => {}];
 
   function GainApp() {
     const [gain, setGain] = React.useState(4.22);
@@ -15,6 +26,12 @@
     const [meters, setMeters] = React.useState({ in: 0.7, outL: 0.74, outR: 0.7 });
     const [heldPeak, setHeldPeak] = React.useState(-120);
     const [lufs, setLufs] = React.useState(-12.4);
+    const [t, setTweak] = useT(TWEAK_DEFAULTS);
+
+    const clean = t.surface === "clean";
+    const grainO = clean ? 0 : (t.grain / 100) * 0.45;
+    const wearO = clean ? 0 : (t.wear / 100) * 0.30;
+    const sheenO = t.gradient / 100;
 
     React.useEffect(() => {
       const id = setInterval(() => {
@@ -35,7 +52,9 @@
 
     return (
       <div id="plugin" style={{ width: 820, height: 820, position: "relative",
-        background: "var(--surface-base)", fontFamily: "var(--font-mono)" }}>
+        background: "var(--surface-base)", fontFamily: "var(--font-mono)",
+        "--grain-o": grainO, "--wear-o": wearO, "--sheen-o": sheenO }}>
+        <div className="af-sheen"></div>
 
         {/* header */}
         <div style={{ display: "flex", alignItems: "flex-start", padding: "10px 24px 0" }}>
@@ -119,6 +138,22 @@
             <AF_Select value={os} options={["1x", "4x", "8x"]} onChange={setOs} width={64} />
           </div>
         </div>
+
+        {typeof TweaksPanel === "function" && ReactDOM.createPortal(
+          <TweaksPanel>
+            <TweakSection label="Surface finish" />
+            <TweakRadio label="Finish" value={t.surface} options={["clean", "worn"]}
+              onChange={(v) => setTweak("surface", v)} />
+            <TweakSlider label="Grain" value={t.grain} min={0} max={100} step={5}
+              onChange={(v) => setTweak("grain", v)} />
+            <TweakSlider label="Wear" value={t.wear} min={0} max={100} step={5}
+              onChange={(v) => setTweak("wear", v)} />
+            <TweakSection label="Lighting" />
+            <TweakSlider label="Gradient" value={t.gradient} min={0} max={100} step={5}
+              onChange={(v) => setTweak("gradient", v)} />
+          </TweaksPanel>,
+          document.body
+        )}
       </div>
     );
   }
