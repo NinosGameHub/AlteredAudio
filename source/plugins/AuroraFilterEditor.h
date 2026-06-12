@@ -362,7 +362,7 @@ private:
     float specWork[kSpecPoints] = {};
 
     static constexpr float kMinF = 20.0f, kMaxF = 20000.0f;
-    static constexpr float kDbTop = 12.0f, kDbBot = -60.0f;
+    static constexpr float kDbTop = 12.0f, kDbBot = -30.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ResponseDisplay)
 };

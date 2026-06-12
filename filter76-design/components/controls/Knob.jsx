@@ -96,8 +96,8 @@ export function Knob({
   const onDouble = () => { if (!disabled && onChange && defaultValue != null) onChange(defaultValue); };
 
   const labelStr = typeof label === "string" ? label : "";
-  const faceLabelSize = labelStr.length > 11 ? 4.1 : 4.6;
-  const faceLabelSpacing = labelStr.length > 11 ? 1.0 : 1.5;
+  const faceLabelSize = labelStr.length > 11 ? 5.6 : 6.2;   // larger, tighter — matches JUCE 6.2%
+  const faceLabelSpacing = labelStr.length > 11 ? 0.2 : 0.3;
 
   const disc = (
     <svg

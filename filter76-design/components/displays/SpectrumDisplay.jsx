@@ -47,7 +47,7 @@ export function SpectrumDisplay({
   const plotH = Math.max(10, H - padT - padB);
 
   const FMIN = 20, FMAX = 20000;
-  const GTOP = 12, GBOT = -60;
+  const GTOP = 12, GBOT = -30;
   const lf = (f) => Math.log10(f);
   const x = (f) => padL + ((lf(f) - lf(FMIN)) / (lf(FMAX) - lf(FMIN))) * plotW;
   const y = (g) => padT + (1 - (g - GBOT) / (GTOP - GBOT)) * plotH;
@@ -152,7 +152,7 @@ export function SpectrumDisplay({
 
   const gridF = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
   const labF = { 20: "20", 50: "50", 100: "100", 200: "200", 500: "500", 1000: "1k", 2000: "2k", 5000: "5k", 10000: "10k", 20000: "20k" };
-  const gridG = [12, 6, 0, -6, -12, -18, -24, -36, -48, -60];
+  const gridG = [6, 0, -6, -12, -18, -24];
 
   return (
     <div
@@ -160,7 +160,7 @@ export function SpectrumDisplay({
       className={`af-spectrum ${className}`}
       style={{
         position: "relative", width: "100%", height: typeof height === "number" ? `${height}px` : height,
-        background: "radial-gradient(130% 140% at 50% 30%, #201e1a 0%, #15140f 52%, #0b0a08 100%)",
+        background: "linear-gradient(#171511, #11100d)",   // even tone — light comes from the node only
         borderRadius: "var(--radius-lg)", overflow: "hidden",
         boxShadow: "var(--inset-well), 0 0 0 1px rgba(0,0,0,0.5)",
       }}
@@ -170,10 +170,24 @@ export function SpectrumDisplay({
         style={{ display: "block", cursor: onNodeChange ? "crosshair" : "default" }}>
         <defs>
           <linearGradient id={`sg-${uid}`} x1="0" y1={padT} x2="0" y2={padT + plotH} gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="var(--crt-line)" stopOpacity="0.55" />
-            <stop offset="0.4" stopColor="var(--crt-line)" stopOpacity="0.20" />
+            <stop offset="0" stopColor="var(--crt-line)" stopOpacity="0.28" />
+            <stop offset="0.4" stopColor="var(--crt-line)" stopOpacity="0.11" />
             <stop offset="1" stopColor="var(--crt-line)" stopOpacity="0.0" />
           </linearGradient>
+          {/* analyzer stroke: full strength almost to the floor, dissolves in the last few % */}
+          <linearGradient id={`sl-${uid}`} x1="0" y1={padT} x2="0" y2={padT + plotH} gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="var(--crt-line)" stopOpacity="0.70" />
+            <stop offset="0.70" stopColor="var(--crt-line)" stopOpacity="0.55" />
+            <stop offset="0.93" stopColor="var(--crt-line)" stopOpacity="0.45" />
+            <stop offset="1" stopColor="var(--crt-line)" stopOpacity="0" />
+          </linearGradient>
+          {/* spotlight — warm glow radiating from the node, tracks it as it moves */}
+          <radialGradient id={`spot-${uid}`} cx={nodeX} cy={nodeY} r={plotH * 0.85}
+            gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#FBD27A" stopOpacity="0.20" />
+            <stop offset="0.4" stopColor="#FBD27A" stopOpacity="0.07" />
+            <stop offset="1" stopColor="#FBD27A" stopOpacity="0" />
+          </radialGradient>
           <filter id={`glow-${uid}`} x="-20%" y="-40%" width="140%" height="180%">
             <feGaussianBlur stdDeviation="3.2" />
           </filter>
@@ -188,11 +202,16 @@ export function SpectrumDisplay({
             stroke={g === 0 ? "rgba(240,181,71,0.16)" : "rgba(240,181,71,0.06)"} strokeWidth="1" />
         ))}
 
+        {/* node spotlight — under everything else, follows the node */}
+        {showNode ? (
+          <rect x={0} y={0} width={W} height={H} fill={`url(#spot-${uid})`} />
+        ) : null}
+
         {/* analyzer */}
         {showSpectrum ? (
           <>
             <path d={specArea} fill={`url(#sg-${uid})`} />
-            <path d={specPath} fill="none" stroke="var(--crt-line)" strokeWidth="1.25" opacity="0.85" strokeLinejoin="round" />
+            <path d={specPath} fill="none" stroke={`url(#sl-${uid})`} strokeWidth="1.25" strokeLinejoin="round" />
           </>
         ) : null}
 
@@ -224,8 +243,6 @@ export function SpectrumDisplay({
         <text x={W - padR} y={H - 8} textAnchor="end" fontFamily="var(--font-mono)" fontSize="9.5" fill="var(--crt-line)" opacity="0.55">Hz</text>
       </svg>
 
-      {/* subtle CRT vignette */}
-      <div style={{ position: "absolute", inset: 0, background: "var(--crt-vignette)", pointerEvents: "none" }} />
     </div>
   );
 }

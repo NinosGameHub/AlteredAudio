@@ -201,12 +201,12 @@ void AuroraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w,
         g.drawText(value, (int)(cx - rDisc), (int)(cy - size * 0.11f),
                    (int)(rDisc * 2.0f), (int)(size * 0.15f), juce::Justification::centred);
 
-        // tight tracking + narrow band, kept above the amber dot's travel arc
+        // larger label, tight tracking — kept above the amber dot's travel arc
         g.setColour(juce::Colour(0xFF6B6353).withAlpha(enabled ? 1.0f : 0.5f));
-        g.setFont(aurora::mono(size * 0.046f).withExtraKerningFactor(0.02f));   // spec: 4.6%
+        g.setFont(aurora::mono(size * 0.062f));
         g.drawFittedText(label,
-                         (int)(cx - rDisc * 0.8075f), (int)(cy + size * 0.052f),
-                         (int)(rDisc * 1.615f), (int)(size * 0.065f),
+                         (int)(cx - rDisc * 0.85f), (int)(cy + size * 0.048f),
+                         (int)(rDisc * 1.7f), (int)(size * 0.080f),
                          juce::Justification::centred, 1, 0.9f);
     }
 }
@@ -330,7 +330,7 @@ ResponseDisplay::ResponseDisplay(juce::AudioProcessorValueTreeState& vts,
                                  FilterAnalysisSource& src)
     : apvts(vts), analysis(src)
 {
-    for (auto& v : specDisp) v = kDbBot - 24.0f;
+    for (auto& v : specDisp) v = -120.0f;   // park well below the analyzer floor
 }
 
 float ResponseDisplay::xForFreq(float hz, float w) const
@@ -394,7 +394,7 @@ void ResponseDisplay::refresh()
                 mag = juce::jmax(mag, fftWork[b]);
         }
 
-        specWork[p] = juce::Decibels::gainToDecibels(mag * norm, -100.0f) + 18.0f;
+        specWork[p] = juce::Decibels::gainToDecibels(mag * norm, -100.0f);
     }
 
     // light spatial smoothing — kills single-bin jaggies, keeps peaks
@@ -404,8 +404,11 @@ void ResponseDisplay::refresh()
         const float next = specWork[juce::jmin(kSpecPoints - 1, p + 1)];
         const float sm   = 0.25f * prev + 0.5f * specWork[p] + 0.25f * next;
 
-        // ballistics: instant attack, ~30 dB/s release at 30 fps
-        specDisp[p] = (sm > specDisp[p]) ? sm : specDisp[p] - 1.0f;
+        // ballistics: instant attack, slow exponential ease-out release —
+        // calm, unhurried fall so the analyzer reads smooth, not jittery
+        specDisp[p] = (sm > specDisp[p])
+                        ? sm
+                        : specDisp[p] - juce::jmax(0.10f, (specDisp[p] + 100.0f) * 0.025f);
     }
 
     repaint();
@@ -491,71 +494,7 @@ void ResponseDisplay::paint(juce::Graphics& g)
 {
     const float w = (float)getWidth(), h = (float)getHeight();
 
-    // dark precision glass — radial falloff to the corners
-    {
-        juce::ColourGradient bg(juce::Colour(0xFF201E1A), w * 0.5f, h * 0.3f,
-                                juce::Colour(0xFF0B0A08), w * 0.5f, h * 1.6f, true);
-        bg.addColour(0.52, juce::Colour(0xFF15140F));
-        g.setGradientFill(bg);
-        g.fillRoundedRectangle(0.0f, 0.0f, w, h, 10.0f);
-    }
-
-    // amber log grid — full 10-line frequency set + 6 dB dB steps
-    g.setColour(aurora::graphLine.withAlpha(0.07f));
-    for (float f : { 20.f, 50.f, 100.f, 200.f, 500.f, 1000.f, 2000.f, 5000.f, 10000.f, 20000.f })
-        g.drawVerticalLine((int)xForFreq(f, w), 4.0f, h - 18.0f);
-    g.setColour(aurora::graphLine.withAlpha(0.06f));
-    for (float db : { 12.f, 6.f, -6.f, -12.f, -18.f, -24.f, -36.f, -48.f })
-        g.drawHorizontalLine((int)yForDb(db, h), 4.0f, w - 4.0f);
-    g.setColour(aurora::graphLine.withAlpha(0.16f));
-    g.drawHorizontalLine((int)yForDb(0.0f, h), 4.0f, w - 4.0f);
-
-    // Live spectrum — translucent gradient-filled analyzer + crisp top line.
-    // The analyzer uses its own, deeper dB scale (+12..-90) than the response
-    // graph, so the body of the spectrum fills the display instead of only
-    // the peaks poking up from the bottom edge.
-    {
-        static constexpr float kSpecTop = 12.0f, kSpecBot = -90.0f;
-        auto ySpec = [h](float db) {
-            return (kSpecTop - juce::jlimit(kSpecBot, kSpecTop, db))
-                 / (kSpecTop - kSpecBot) * h; };
-
-        // Only draw while there is actual signal — digital silence parks
-        // every point at the -82 dB noise floor, which otherwise renders
-        // as a jittery line along the bottom edge.
-        float maxDb = -200.0f;
-        for (int p = 0; p < kSpecPoints; ++p)
-            maxDb = juce::jmax(maxDb, specDisp[p]);
-
-        if (maxDb > -70.0f)
-        {
-            juce::Path spec;
-            spec.startNewSubPath(0.0f, h);
-            for (int p = 0; p < kSpecPoints; ++p)
-                spec.lineTo((float)p / (kSpecPoints - 1) * w, ySpec(specDisp[p]));
-            spec.lineTo(w, h);
-            spec.closeSubPath();
-
-            juce::ColourGradient fillGrad(aurora::graphLine.withAlpha(0.45f), 0.0f, 0.0f,
-                                          aurora::graphLine.withAlpha(0.0f),  0.0f, h, false);
-            fillGrad.addColour(0.4, aurora::graphLine.withAlpha(0.18f));
-            g.setGradientFill(fillGrad);
-            g.fillPath(spec);
-
-            juce::Path specLine;
-            for (int p = 0; p < kSpecPoints; ++p)
-            {
-                const float sx = (float)p / (kSpecPoints - 1) * w;
-                const float sy = ySpec(specDisp[p]);
-                if (p == 0) specLine.startNewSubPath(sx, sy);
-                else        specLine.lineTo(sx, sy);
-            }
-            g.setColour(aurora::graphLine.withAlpha(0.85f));
-            g.strokePath(specLine, juce::PathStrokeType(1.25f, juce::PathStrokeType::curved));
-        }
-    }
-
-    // Exact response curve
+    // Filter params + node position up front — the node is the light source
     const auto* pType  = apvts.getRawParameterValue(ParamID::filterType);
     const auto* pFreq  = apvts.getRawParameterValue(ParamID::filterFreq);
     const auto* pQ     = apvts.getRawParameterValue(ParamID::filterQ);
@@ -568,6 +507,92 @@ void ResponseDisplay::paint(juce::Graphics& g)
     const float gain  = pGain  ? pGain->load()  : 0.0f;
     const int   slope = pSlope ? (int)pSlope->load() : 0;
     const double sr   = (double)analysis.sampleRate.load();
+
+    const float nodeX = xForFreq(freq, w);
+    const float nodeY = yForDb(juce::jlimit(kDbBot, kDbTop,
+                                nodeDbFor((int)type, q, gain)), h);
+
+    // dark precision glass — even tone, no baked-in lighting anywhere
+    {
+        juce::ColourGradient bg(juce::Colour(0xFF171511), 0.0f, 0.0f,
+                                juce::Colour(0xFF11100D), 0.0f, h, false);
+        g.setGradientFill(bg);
+        g.fillRoundedRectangle(0.0f, 0.0f, w, h, 10.0f);
+    }
+
+    // amber log grid — full 10-line frequency set + 6 dB dB steps
+    g.setColour(aurora::graphLine.withAlpha(0.07f));
+    for (float f : { 20.f, 50.f, 100.f, 200.f, 500.f, 1000.f, 2000.f, 5000.f, 10000.f, 20000.f })
+        g.drawVerticalLine((int)xForFreq(f, w), 4.0f, h - 18.0f);
+    g.setColour(aurora::graphLine.withAlpha(0.06f));
+    for (float db : { 6.f, -6.f, -12.f, -18.f, -24.f })
+        g.drawHorizontalLine((int)yForDb(db, h), 4.0f, w - 4.0f);
+    g.setColour(aurora::graphLine.withAlpha(0.16f));
+    g.drawHorizontalLine((int)yForDb(0.0f, h), 4.0f, w - 4.0f);
+
+    // Live spectrum — quiet, premium analyzer behind the response curve.
+    // Own deeper dB scale (0 dBFS at the top of the graph, -78 at the
+    // bottom) so programme material sits in the lower half and never
+    // shouts over the response curve.
+    {
+        static constexpr float kSpecTop = 0.0f, kSpecBot = -78.0f;
+        auto ySpec = [h](float db) {
+            return (kSpecTop - juce::jlimit(kSpecBot, kSpecTop, db))
+                 / (kSpecTop - kSpecBot) * h; };
+
+        float maxDb = -200.0f;
+        for (int p = 0; p < kSpecPoints; ++p)
+            maxDb = juce::jmax(maxDb, specDisp[p]);
+
+        // Global ease-out: the whole layer melts away as the programme
+        // material dies, instead of switching off.
+        const float fadeAll = juce::jlimit(0.0f, 1.0f, (maxDb + 90.0f) / 15.0f);
+
+        if (fadeAll > 0.02f)
+        {
+            juce::Path spec;
+            spec.startNewSubPath(0.0f, h);
+            for (int p = 0; p < kSpecPoints; ++p)
+                spec.lineTo((float)p / (kSpecPoints - 1) * w, ySpec(specDisp[p]));
+            spec.lineTo(w, h);
+            spec.closeSubPath();
+
+            juce::ColourGradient fillGrad(aurora::graphLine.withAlpha(0.28f * fadeAll), 0.0f, 0.0f,
+                                          aurora::graphLine.withAlpha(0.0f),  0.0f, h, false);
+            fillGrad.addColour(0.4, aurora::graphLine.withAlpha(0.11f * fadeAll));
+            g.setGradientFill(fillGrad);
+            g.fillPath(spec);
+
+            juce::Path specLine;
+            for (int p = 0; p < kSpecPoints; ++p)
+            {
+                const float sx = (float)p / (kSpecPoints - 1) * w;
+                const float sy = ySpec(specDisp[p]);
+                if (p == 0) specLine.startNewSubPath(sx, sy);
+                else        specLine.lineTo(sx, sy);
+            }
+
+            // The stroke stays at full strength almost to the floor and only
+            // dissolves in the last few percent — HF content remains visible,
+            // while bands parked at the absolute floor melt into the glass.
+            juce::ColourGradient lineGrad(aurora::graphLine.withAlpha(0.70f * fadeAll), 0.0f, 0.0f,
+                                          aurora::graphLine.withAlpha(0.0f),  0.0f, h, false);
+            lineGrad.addColour(0.70, aurora::graphLine.withAlpha(0.55f * fadeAll));
+            lineGrad.addColour(0.93, aurora::graphLine.withAlpha(0.45f * fadeAll));
+            g.setGradientFill(lineGrad);
+            g.strokePath(specLine, juce::PathStrokeType(1.25f, juce::PathStrokeType::curved));
+        }
+    }
+
+    // Spotlight — warm glow radiating from the node, tracks it as you drag
+    {
+        const float spotR = h * 0.85f;
+        juce::ColourGradient spot(aurora::curveGlow.withAlpha(0.20f), nodeX, nodeY,
+                                   juce::Colours::transparentBlack, nodeX + spotR, nodeY, true);
+        spot.addColour(0.40f, aurora::curveGlow.withAlpha(0.07f));
+        g.setGradientFill(spot);
+        g.fillRoundedRectangle(0.0f, 0.0f, w, h, 10.0f);
+    }
 
     // Ghost curve — the LIVE modulated filter (LFO / env), translucent,
     // so you can see what the modulation is actually doing to the cutoff.
@@ -617,9 +642,7 @@ void ResponseDisplay::paint(juce::Graphics& g)
 
     // Filter node — round draggable handle on a faint cutoff line
     {
-        const float nx = xForFreq(freq, w);
-        const float ny = yForDb(juce::jlimit(kDbBot, kDbTop,
-                          nodeDbFor((int)type, q, gain)), h);
+        const float nx = nodeX, ny = nodeY;
         g.setColour(aurora::curveGlow.withAlpha(0.35f));
         g.drawVerticalLine((int)nx, 4.0f, h - 18.0f);
         g.setColour(aurora::curveGlow.withAlpha(0.12f));
@@ -628,15 +651,6 @@ void ResponseDisplay::paint(juce::Graphics& g)
         g.drawEllipse(nx - 11.0f, ny - 11.0f, 22.0f, 22.0f, 1.5f);
         g.setColour(juce::Colour(0xFFFFE6B0));
         g.fillEllipse(nx - 3.4f, ny - 3.4f, 6.8f, 6.8f);
-    }
-
-    // CRT phosphor vignette — matches CSS radial-gradient(120% 140% at 50% 0%, transparent 55%, rgba(0,0,0,0.45) 100%)
-    {
-        juce::ColourGradient vign(juce::Colours::transparentBlack, w * 0.5f, h * 0.30f,
-                                   juce::Colour(0x73000000), w * 0.5f, h, true);
-        vign.addColour(0.55, juce::Colours::transparentBlack);
-        g.setGradientFill(vign);
-        g.fillRoundedRectangle(0.0f, 0.0f, w, h, 10.0f);
     }
 
     // axis labels — dim amber mono
@@ -650,7 +664,7 @@ void ResponseDisplay::paint(juce::Graphics& g)
         const float lx = juce::jlimit(2.0f, w - 38.0f, xForFreq(f, w) - 18.0f);
         g.drawText(lbl, (int)lx, (int)h - 16, 40, 12, juce::Justification::centred);
     }
-    for (float db : { 12.f, 6.f, 0.f, -6.f, -12.f, -18.f, -24.f, -36.f, -48.f })
+    for (float db : { 6.f, 0.f, -6.f, -12.f, -18.f, -24.f })
         g.drawText(juce::String((int)db), 4, (int)yForDb(db, h) - 6, 28, 11,
                    juce::Justification::centredLeft);
     g.setColour(aurora::graphLine.withAlpha(0.55f));
@@ -1000,17 +1014,18 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
         // header captions + readouts
         label(prevPreset.getX(), 6, 300, "PRESET", juce::Justification::centredLeft);
 
+        // readout well on the control row (y=21, same as SAVE/A/B), caption underneath
         auto readout = [&g, &label](int rx, const char* name, const juce::String& val, int boxW) {
-            label(rx, 24, boxW + 20, name, juce::Justification::centred);
-            const juce::Rectangle<float> well((float)rx, 40.0f, (float)boxW, 22.0f);
+            const juce::Rectangle<float> well((float)rx, 21.0f, (float)boxW, 22.0f);
             g.setColour(aurora::graphBg);
             g.fillRoundedRectangle(well, 2.0f);
             g.setColour(aurora::graphLine);
             g.setFont(aurora::mono(11.0f));
             g.drawText(val, well.toNearestInt(), juce::Justification::centred);
+            label(rx - 10, 47, boxW + 20, name, juce::Justification::centred);
         };
         const auto* pMix = apvts.getRawParameterValue(ParamID::filterMix);
-        label(1036, 24, 80, "OVERSAMPLING", juce::Justification::centred);
+        label(1026, 47, 100, "OVERSAMPLING", juce::Justification::centred);
         readout(1128, "MIX",
                 juce::String(juce::roundToInt((pMix ? pMix->load() : 1.0f) * 100.0f)) + " %", 52);
 
@@ -1077,7 +1092,7 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
         // section sub-labels
         label(kModPanel.getX() + 18, kModPanel.getY() + 38,  200, "SOURCE");
         label(kModPanel.getX() + 18, kModPanel.getY() + 102, 200, "DESTINATION");
-        label(kSlopePanel.getX() + 18, kSlopePanel.getY() + 112, 100, "MODE");
+        label(kSlopePanel.getX() + 18, kSlopePanel.getY() + 116, 100, "MODE");
 
         // ---- footer: warm strip with SYSTEM LED + inline stats ----
         {
@@ -1146,6 +1161,11 @@ void AuroraFilterEditor::makeKnob(AuroraKnob& k, const juce::String& paramId,
 {
     k.slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     k.slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 86, 17);
+    // Component-level colours win over every LookAndFeel fallback — the
+    // text box label re-reads these whenever the slider rebuilds it.
+    k.slider.setColour(juce::Slider::textBoxTextColourId,       aurora::textPrimary);
+    k.slider.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+    k.slider.setColour(juce::Slider::textBoxOutlineColourId,    juce::Colours::transparentBlack);
     parent.addAndMakeVisible(k.slider);
     k.attach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         apvts, paramId, k.slider);
@@ -1452,8 +1472,8 @@ void AuroraFilterEditor::resized()
     presetLabel.setBounds(572,  19, 300, 26);
     nextPreset .setBounds(878,  19, 26, 26);
     saveBtn    .setBounds(910,  19, 52, 26);
-    osBox      .setBounds(1044, 21, 64, 22);
-    mixDragger .setBounds(1128, 20, 72, 46);   // covers MIX label + well
+    osBox      .setBounds(1044, 21, 64, 22);   // control row; caption painted underneath at y=47
+    mixDragger .setBounds(1124, 19, 60, 40);   // covers MIX well + caption
     btnA       .setBounds(1216, 21, 38, 22);
     btnB       .setBounds(1256, 21, 38, 22);
     powerBtn   .setBounds(1318,  6, 44, 58);   // circle d=44, LED at ~60px
@@ -1463,19 +1483,19 @@ void AuroraFilterEditor::resized()
     meters .setBounds(kMeterPanel.getX() + (kMeterPanel.getWidth() - 66) / 2,
                       kMeterPanel.getY() + 38, 66, kMeterPanel.getHeight() - 58);
 
-    // ---- FILTER TYPE option list (26px rows, 6px gap = 32px step) ----
+    // ---- FILTER TYPE option list (26px rows, 2px gap = 28px step, 6 rows fit in 200px) ----
     for (int i = 0; i < 6; ++i)
-        typeBtns[i].setBounds(kTypePanel.getX() + 10, kTypePanel.getY() + 30 + i * 32,
+        typeBtns[i].setBounds(kTypePanel.getX() + 10, kTypePanel.getY() + 26 + i * 28,
                               kTypePanel.getWidth() - 20, 26);
 
     // ---- SLOPE + MODE option lists ----
     {
         const int sx = kSlopePanel.getX() + 10, sw = kSlopePanel.getWidth() - 20;
-        slope12.setBounds(sx, kSlopePanel.getY() + 28, sw, 26);
-        slope24.setBounds(sx, kSlopePanel.getY() + 58, sw, 26);
-        slope48.setBounds(sx, kSlopePanel.getY() + 88, sw, 26);
-        modeAnalog.setBounds(sx, kSlopePanel.getY() + 124, sw, 26);
-        modeClean .setBounds(sx, kSlopePanel.getY() + 154, sw, 26);
+        slope12.setBounds(sx, kSlopePanel.getY() + 26, sw, 26);
+        slope24.setBounds(sx, kSlopePanel.getY() + 54, sw, 26);
+        slope48.setBounds(sx, kSlopePanel.getY() + 82, sw, 26);  // ends at +108
+        modeAnalog.setBounds(sx, kSlopePanel.getY() + 128, sw, 26);
+        modeClean .setBounds(sx, kSlopePanel.getY() + 156, sw, 26);
     }
 
     // ---- hero face knobs + GAIN at the right of the knob panel ----
