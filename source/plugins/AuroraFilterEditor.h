@@ -60,8 +60,12 @@ namespace aurora
 // ============================================================
 struct FilterAnalysisSource
 {
-    static constexpr int kFFTOrder = 11;
-    static constexpr int kFFTSize  = 1 << kFFTOrder;   // 2048
+    // Large FFT + continuously-written ring buffer: the UI snapshots the
+    // most recent kFFTSize samples every frame (overlapped analysis), so
+    // the spectrum is both high-resolution in the lows and temporally
+    // smooth — instead of one chunky update per FFT fill.
+    static constexpr int kFFTOrder = 13;
+    static constexpr int kFFTSize  = 1 << kFFTOrder;   // 8192
 
     void pushBlock(const juce::AudioBuffer<float>& buf)
     {
@@ -76,29 +80,19 @@ struct FilterAnalysisSource
             while (mag > cur && !pk.compare_exchange_weak(cur, mag)) {}
         }
 
+        int wp = writePos.load(std::memory_order_relaxed);
         for (int i = 0; i < n; ++i)
         {
             float s = 0.0f;
             for (int ch = 0; ch < nc; ++ch) s += buf.getSample(ch, i);
-            s /= (float)juce::jmax(1, nc);
-
-            if (fifoIndex == kFFTSize)
-            {
-                if (!blockReady.load())
-                {
-                    std::memcpy(fftInput, fifo, sizeof(fifo));
-                    blockReady.store(true);
-                }
-                fifoIndex = 0;
-            }
-            fifo[fifoIndex++] = s;
+            ring[wp] = s / (float)juce::jmax(1, nc);
+            wp = (wp + 1) & (kFFTSize - 1);
         }
+        writePos.store(wp, std::memory_order_release);
     }
 
-    float fifo    [kFFTSize] = {};
-    float fftInput[kFFTSize] = {};
-    int   fifoIndex = 0;
-    std::atomic<bool>  blockReady { false };
+    float ring[kFFTSize] = {};
+    std::atomic<int>   writePos { 0 };
     std::atomic<float> peakL { 0.0f }, peakR { 0.0f };
     std::atomic<float> sampleRate { 44100.0f };
     std::atomic<float> cpuPct   { 0.0f };
@@ -212,8 +206,9 @@ private:
         FilterAnalysisSource::kFFTSize, juce::dsp::WindowingFunction<float>::hann };
     float fftWork[FilterAnalysisSource::kFFTSize * 2] = {};
 
-    static constexpr int kSpecPoints = 160;
+    static constexpr int kSpecPoints = 400;
     float specDisp[kSpecPoints] = {};
+    float specWork[kSpecPoints] = {};
 
     static constexpr float kMinF = 20.0f, kMaxF = 20000.0f;
     static constexpr float kDbTop = 24.0f, kDbBot = -36.0f;

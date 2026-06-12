@@ -286,40 +286,62 @@ float ResponseDisplay::yForDb(float db, float h) const
 
 void ResponseDisplay::refresh()
 {
-    if (analysis.blockReady.load())
+    constexpr int kSize = FilterAnalysisSource::kFFTSize;
+    constexpr int kHalf = kSize / 2;
+
+    // Snapshot the most recent kFFTSize samples in time order (oldest first)
+    const int wp = analysis.writePos.load(std::memory_order_acquire);
+    for (int i = 0; i < kSize; ++i)
+        fftWork[i] = analysis.ring[(wp + i) & (kSize - 1)];
+    std::memset(fftWork + kSize, 0, sizeof(float) * kSize);
+
+    window.multiplyWithWindowingTable(fftWork, kSize);
+    fft.performFrequencyOnlyForwardTransform(fftWork);
+
+    const float sr   = juce::jmax(8000.0f, analysis.sampleRate.load());
+    const float norm = 4.0f / (float)kSize;   // Hann coherent-gain compensated
+    const float w    = (float)juce::jmax(1, getWidth());
+
+    for (int p = 0; p < kSpecPoints; ++p)
     {
-        std::memset(fftWork, 0, sizeof(fftWork));
-        std::memcpy(fftWork, analysis.fftInput, sizeof(float) * FilterAnalysisSource::kFFTSize);
-        analysis.blockReady.store(false);
+        const float fLo = freqForX((float)p       / kSpecPoints * w, w);
+        const float fHi = freqForX((float)(p + 1) / kSpecPoints * w, w);
+        const float bLo = fLo / (sr * 0.5f) * (float)kHalf;
+        const float bHi = fHi / (sr * 0.5f) * (float)kHalf;
 
-        window.multiplyWithWindowingTable(fftWork, FilterAnalysisSource::kFFTSize);
-        fft.performFrequencyOnlyForwardTransform(fftWork);
-
-        const float sr   = analysis.sampleRate.load();
-        const float norm = 2.0f / (float)FilterAnalysisSource::kFFTSize;
-        const float w    = (float)juce::jmax(1, getWidth());
-
-        for (int p = 0; p < kSpecPoints; ++p)
+        float mag;
+        if (bHi - bLo <= 1.0f)
         {
-            const float fLo = freqForX((float)p       / kSpecPoints * w, w);
-            const float fHi = freqForX((float)(p + 1) / kSpecPoints * w, w);
-            int bLo = (int)(fLo / (sr * 0.5f) * (FilterAnalysisSource::kFFTSize / 2));
-            int bHi = (int)(fHi / (sr * 0.5f) * (FilterAnalysisSource::kFFTSize / 2));
-            bLo = juce::jlimit(1, FilterAnalysisSource::kFFTSize / 2 - 1, bLo);
-            bHi = juce::jlimit(bLo, FilterAnalysisSource::kFFTSize / 2 - 1, bHi);
-
-            float mag = 0.0f;
-            for (int b = bLo; b <= bHi; ++b)
-                mag = juce::jmax(mag, fftWork[b]);
-
-            const float db = juce::Decibels::gainToDecibels(mag * norm, -100.0f) + 18.0f;
-            specDisp[p] = (db > specDisp[p]) ? db : specDisp[p] - 1.5f;
+            // narrower than one bin — interpolate between neighbours so the
+            // low end draws a continuous curve instead of a staircase
+            const float bc = juce::jlimit(1.0f, (float)(kHalf - 2), 0.5f * (bLo + bHi));
+            const int   b0 = (int)bc;
+            const float t  = bc - (float)b0;
+            mag = fftWork[b0] * (1.0f - t) + fftWork[b0 + 1] * t;
         }
+        else
+        {
+            mag = 0.0f;
+            const int b0 = juce::jlimit(1, kHalf - 1, (int)std::ceil(bLo));
+            const int b1 = juce::jlimit(b0, kHalf - 1, (int)bHi);
+            for (int b = b0; b <= b1; ++b)
+                mag = juce::jmax(mag, fftWork[b]);
+        }
+
+        specWork[p] = juce::Decibels::gainToDecibels(mag * norm, -100.0f) + 18.0f;
     }
-    else
+
+    // light spatial smoothing — kills single-bin jaggies, keeps peaks
+    for (int p = 0; p < kSpecPoints; ++p)
     {
-        for (auto& v : specDisp) v -= 1.5f;
+        const float prev = specWork[juce::jmax(0, p - 1)];
+        const float next = specWork[juce::jmin(kSpecPoints - 1, p + 1)];
+        const float sm   = 0.25f * prev + 0.5f * specWork[p] + 0.25f * next;
+
+        // ballistics: instant attack, ~30 dB/s release at 30 fps
+        specDisp[p] = (sm > specDisp[p]) ? sm : specDisp[p] - 1.0f;
     }
+
     repaint();
 }
 
