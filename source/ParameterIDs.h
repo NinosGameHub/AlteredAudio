@@ -166,6 +166,8 @@ namespace ParamID
     // Gain
     constexpr const char* gainBypass      = "gain_bypass";
     constexpr const char* gainDb          = "gain_db";
+    constexpr const char* gainMode        = "gain_mode";       // Stereo / Mono / Side
+    constexpr const char* gainOversamp    = "gain_oversamp";   // 1x / 4x / 8x
 
     // Chain order (0..11 — sorted to determine processing order)
     constexpr const char* posFilter       = "pos_filter";

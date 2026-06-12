@@ -61,7 +61,8 @@ if (Test-Path $oldRack) {
 }
 
 # ---- Remove installs whose product was renamed ----
-$renamed = @('AlteredAudio Filter.vst3')   # pre-0.7.1 name of Filter 76
+$renamed = @('AlteredAudio Filter.vst3',   # pre-0.7.1 name of Filter 76
+             'AlteredAudio Gain.vst3')     # pre-0.8.6 name of Gain 76
 foreach ($name in $renamed) {
     $stale = Join-Path $destRoot $name
     if (Test-Path $stale) {

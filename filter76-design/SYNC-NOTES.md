@@ -21,6 +21,16 @@ JUCE implementation changes mirrored INTO the design system:
   - face label: 6.2 viewBox-units (was 4.6), letter-spacing 0.3 (was 1.5) —
     bigger type, tighter tracking, per user feedback
 
+## Pushed back 2026-06-12 (Gain 76 kit, plugin v0.8.7)
+
+- `ui_kits/gain/App.jsx` — NEW: the Gain 76 utility plugin layout matching
+  the JUCE GainEditor: 820×820 square faceplate, header wordmark + power
+  key, main panel with INPUT/OUTPUT vertical meters flanking a 340px hero
+  face knob (live value on the disc, GAIN · DB folded label, ±24 dB,
+  scale labels -24/0/+24), L/R peak strip with hold markers (R mirrored),
+  footer cells MODE (STEREO/MONO/SIDE select) | PEAK (held, click resets)
+  | LUFS (momentary, K-weighted) | OVERSAMPLING (1x/4x/8x select).
+
 Everything that *defines* the design is mirrored here: `readme.md` (the full
 spec), `SKILL.md`, `styles.css`, `tokens/`, all component sources
 (`components/**/*.jsx`) and usage docs (`*.prompt.md`), and the full plugin
