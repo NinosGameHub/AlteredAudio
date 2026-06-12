@@ -498,36 +498,43 @@ void ResponseDisplay::paint(juce::Graphics& g)
     // the peaks poking up from the bottom edge.
     {
         static constexpr float kSpecTop = 12.0f, kSpecBot = -90.0f;
-        static constexpr float kSilence = -78.0f;   // noise floor sits at -82 dB
         auto ySpec = [h](float db) {
-            if (db < kSilence)                       // silence: dip below the
-                return h + 4.0f;                     // visible area, no jitter
             return (kSpecTop - juce::jlimit(kSpecBot, kSpecTop, db))
                  / (kSpecTop - kSpecBot) * h; };
 
-        juce::Path spec;
-        spec.startNewSubPath(0.0f, h);
+        // Only draw while there is actual signal — digital silence parks
+        // every point at the -82 dB noise floor, which otherwise renders
+        // as a jittery line along the bottom edge.
+        float maxDb = -200.0f;
         for (int p = 0; p < kSpecPoints; ++p)
-            spec.lineTo((float)p / (kSpecPoints - 1) * w, ySpec(specDisp[p]));
-        spec.lineTo(w, h);
-        spec.closeSubPath();
+            maxDb = juce::jmax(maxDb, specDisp[p]);
 
-        juce::ColourGradient fillGrad(aurora::graphLine.withAlpha(0.45f), 0.0f, 0.0f,
-                                      aurora::graphLine.withAlpha(0.0f),  0.0f, h, false);
-        fillGrad.addColour(0.4, aurora::graphLine.withAlpha(0.18f));
-        g.setGradientFill(fillGrad);
-        g.fillPath(spec);
-
-        juce::Path specLine;
-        for (int p = 0; p < kSpecPoints; ++p)
+        if (maxDb > -70.0f)
         {
-            const float sx = (float)p / (kSpecPoints - 1) * w;
-            const float sy = ySpec(specDisp[p]);
-            if (p == 0) specLine.startNewSubPath(sx, sy);
-            else        specLine.lineTo(sx, sy);
+            juce::Path spec;
+            spec.startNewSubPath(0.0f, h);
+            for (int p = 0; p < kSpecPoints; ++p)
+                spec.lineTo((float)p / (kSpecPoints - 1) * w, ySpec(specDisp[p]));
+            spec.lineTo(w, h);
+            spec.closeSubPath();
+
+            juce::ColourGradient fillGrad(aurora::graphLine.withAlpha(0.45f), 0.0f, 0.0f,
+                                          aurora::graphLine.withAlpha(0.0f),  0.0f, h, false);
+            fillGrad.addColour(0.4, aurora::graphLine.withAlpha(0.18f));
+            g.setGradientFill(fillGrad);
+            g.fillPath(spec);
+
+            juce::Path specLine;
+            for (int p = 0; p < kSpecPoints; ++p)
+            {
+                const float sx = (float)p / (kSpecPoints - 1) * w;
+                const float sy = ySpec(specDisp[p]);
+                if (p == 0) specLine.startNewSubPath(sx, sy);
+                else        specLine.lineTo(sx, sy);
+            }
+            g.setColour(aurora::graphLine.withAlpha(0.85f));
+            g.strokePath(specLine, juce::PathStrokeType(1.25f, juce::PathStrokeType::curved));
         }
-        g.setColour(aurora::graphLine.withAlpha(0.85f));
-        g.strokePath(specLine, juce::PathStrokeType(1.25f, juce::PathStrokeType::curved));
     }
 
     // Exact response curve

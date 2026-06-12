@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(AlteredAudio VERSION 0.7.8)
+project(AlteredAudio VERSION 0.7.9)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,7 +17,7 @@ juce_add_plugin(AlteredAudio
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD TRUE
     FORMATS VST3
-    PLUGIN_VERSION "0.7.8"
+    PLUGIN_VERSION "0.7.9"
     PRODUCT_NAME "AlteredAudio"
     VST3_CATEGORIES "Fx"
 )
