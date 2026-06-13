@@ -12,6 +12,12 @@ Extracted at commit `9641536` of this repo (gain branch).
 
 ## Changelog
 
+### 2026-06-13 — Design test (TEMPORARY — revert via `design-test` branch in C:\Dev\Gain76)
+- Added `AlteredAudioLookAndFeel.h` + `PluginEditor.h` to `Source/`
+- New editor: vintage cream panel, bakelite rotary knob, amber VU meters, stereo bar
+- Processor exposes `getInputLevel()`, `getOutputLevel()`, `getAPVTS()` for the new editor
+- **To revert**: in C:\Dev\Gain76, `git checkout master` then rebuild + reinstall
+
 ### 2026-06-13 — Visual corrections (session 2)
 - **Meters**: segment width +10% (22 → 24 px); meters repositioned to panel edges (x=36 / x=885)
 - **Footer PEAK**: removed dark readout box; value now plain black text (`textPrimary`)
