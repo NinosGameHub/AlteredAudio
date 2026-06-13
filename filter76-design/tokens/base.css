@@ -1,0 +1,66 @@
+/* ============================================================
+   AURORA FILTER — Base reset & on-brand defaults
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-12);
+  line-height: var(--lh-body);
+  color: var(--text-primary);
+  background: var(--surface-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings use the wide display face, uppercase by convention */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: var(--fw-regular);
+  color: var(--text-primary);
+  margin: 0;
+  line-height: var(--lh-tight);
+}
+
+/* Numeric / value text is mono */
+code, kbd, samp, pre { font-family: var(--font-mono); }
+
+a { color: var(--accent-amber); text-decoration: none; }
+
+button { font-family: inherit; }
+
+/* The signature label: uppercase mono, tracked */
+.af-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* Section header label — wider tracking */
+.af-section-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* The wordmark */
+.af-wordmark {
+  font-family: var(--font-display);
+  font-size: var(--fs-28);
+  letter-spacing: var(--tracking-wordmark);
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+::selection { background: var(--focus-ring); color: var(--text-primary); }
+
+:focus-visible { outline: none; box-shadow: var(--focus-shadow); }

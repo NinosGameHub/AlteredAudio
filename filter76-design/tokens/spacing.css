@@ -1,0 +1,44 @@
+/* ============================================================
+   AURORA FILTER — Spacing, layout & radii
+   4px base grid. Hardware-flat, tight corners.
+   ============================================================ */
+:root {
+  /* ---- 4px spacing scale ---- */
+  --space-0:  0;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  8px;
+  --space-4:  12px;
+  --space-5:  16px;
+  --space-6:  20px;
+  --space-7:  24px;
+  --space-8:  32px;
+  --space-9:  40px;
+  --space-10: 48px;
+
+  /* ---- Corner radii — tight, engineered ---- */
+  --radius-xs:   2px;   /* readout boxes, ticks */
+  --radius-sm:   3px;   /* buttons, combos, meters */
+  --radius-md:   4px;   /* option-list rows */
+  --radius-lg:   6px;   /* module panels, dialogs */
+  --radius-xl:   10px;  /* display well, outer body */
+  --radius-pill: 999px; /* pill toggles */
+
+  /* ---- Control sizing ---- */
+  --h-control:    30px;  /* combo / button height */
+  --h-control-sm: 24px;  /* compact button */
+  --knob-lg:      132px; /* primary face knobs (value on disc) */
+  --knob-md:      60px;  /* secondary (LFO / env) knobs */
+  --knob-sm:      46px;  /* compact knobs */
+
+  /* ---- Fixed layout dimensions (AF-74: 1400×900, resizable) ---- */
+  --win-w:        1400px;
+  --win-min-w:    1100px;
+  --win-h:        900px;
+  --win-min-h:    700px;
+  --header-h:     96px;   /* top header band */
+  --footer-h:     44px;   /* system status footer */
+  --display-h:    320px;  /* ~40% of interface — the spectrum dominates */
+  --panel-pad:    18px;   /* module panel inner padding */
+  --bezel:        10px;   /* black outer bezel inset */
+}

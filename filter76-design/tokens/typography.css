@@ -1,0 +1,43 @@
+/* ============================================================
+   AURORA FILTER — Typography
+   Headings: Eurostile Extended  (substituted: Michroma)
+   Body + numerical readouts: IBM Plex Mono
+   Uppercase labels, generous tracking, instrument-panel feel.
+   ============================================================ */
+:root {
+  /* ---- Families ---- */
+  --font-display: 'Michroma', 'Eurostile Extended', 'Eurostile', 'Bank Gothic', sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', 'Roboto Mono', monospace;
+  /* Body IS the mono face — this is an instrument, not a webpage. */
+  --font-body:    var(--font-mono);
+
+  /* ---- Size scale (px) — faceplate-dense, readable at 1400x900 ---- */
+  --fs-9:   9px;    /* micro mono — axis ticks, status */
+  --fs-10:  10px;   /* control labels */
+  --fs-11:  11px;   /* small readouts, captions */
+  --fs-12:  12px;   /* body / combo */
+  --fs-13:  13px;   /* readout values, list rows */
+  --fs-14:  14px;   /* large readout, section labels */
+  --fs-16:  16px;   /* sub-headings */
+  --fs-18:  18px;   /* panel titles */
+  --fs-22:  22px;   /* big numeric readout */
+  --fs-28:  28px;   /* wordmark / hero numeric */
+
+  /* ---- Weights ---- */
+  --fw-light:    300; /* @kind font */
+  --fw-regular:  400; /* @kind font */
+  --fw-medium:   500; /* @kind font */
+  --fw-semibold: 600; /* @kind font */
+  --fw-bold:     700; /* @kind font */
+
+  /* ---- Tracking ---- */
+  --tracking-label:    0.08em;   /* uppercase control labels */
+  --tracking-wide:     0.14em;   /* section headers */
+  --tracking-wordmark: 0.22em;   /* AURORA FILTER mark (Michroma is already wide) */
+  --tracking-mono:     0.01em;   /* numeric readouts */
+
+  /* ---- Line heights ---- */
+  --lh-tight: 1.05; /* @kind font */
+  --lh-snug:  1.25; /* @kind font */
+  --lh-body:  1.5; /* @kind font */
+}

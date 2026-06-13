@@ -1,0 +1,12 @@
+/* ============================================================
+   AURORA FILTER — Webfonts
+   ------------------------------------------------------------
+   Headings spec calls for EUROSTILE EXTENDED (commercial, not
+   web-distributable). SUBSTITUTED with Michroma — a free wide,
+   squared geometric face that captures the same instrument-panel
+   character. Flag to the user; drop real Eurostile woff2 here to
+   replace.
+
+   Body + numerical readouts: IBM Plex Mono (exact, open source).
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Michroma&display=swap');
