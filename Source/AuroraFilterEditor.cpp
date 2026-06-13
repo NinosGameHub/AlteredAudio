@@ -1,4 +1,5 @@
 #include "AuroraFilterEditor.h"
+#include <BinaryData.h>
 
 // ============================================================
 //  Layout constants (1400 x 900 design space)
@@ -1031,7 +1032,7 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
         // ---- module panels: flat plastic, hairline, top highlight ----
         auto panel = [&g](juce::Rectangle<int> r, const char* titleTxt, int ledState) {
             const auto rf = r.toFloat();
-            g.setColour(aurora::baseSurface.brighter(0.015f));
+            g.setColour(juce::Colour(0xFFEAE4D6));   // opaque panel fill — slightly lighter than baseSurface
             g.fillRoundedRectangle(rf, 10.0f);
             g.setColour(juce::Colour(0x66FFFCF4));
             g.fillRect(rf.getX() + 2.0f, rf.getY() + 1.0f, rf.getWidth() - 4.0f, 1.5f);
@@ -1137,6 +1138,15 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
             g.drawText("v" + juce::String(JucePlugin_VersionString),
                        kFooter.getRight() - 110, cy - 7, 96, 14,
                        juce::Justification::centredRight);
+        }
+
+        // Wear & tear overlay — PNG's own alpha channel controls scratch/dust opacity.
+        {
+            auto wear = juce::ImageCache::getFromMemory(
+                BinaryData::wear_overlay_png, BinaryData::wear_overlay_pngSize);
+            if (wear.isValid())
+                g.drawImage(wear, 0.0f, 0.0f, (float)kW, (float)kH,
+                            0, 0, wear.getWidth(), wear.getHeight());
         }
     };
 
