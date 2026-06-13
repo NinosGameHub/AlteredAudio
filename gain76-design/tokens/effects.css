@@ -1,0 +1,56 @@
+/* ============================================================
+   AURORA FILTER — Effects, motion, knob & display geometry
+   Warmly industrial. Minimal shadow — the panels are flat
+   plastic with hairlines. The only luminous element is the CRT.
+   ============================================================ */
+:root {
+  /* ---- Elevation (kept subtle — engineered, not glassy) ---- */
+  --shadow-panel:   0 1px 0 rgba(255, 252, 244, 0.55) inset,
+                    0 1px 2px rgba(40, 36, 28, 0.10);
+  --shadow-raised:  0 1px 1px rgba(40, 36, 28, 0.14);
+  --shadow-bezel:   0 0 0 1px rgba(0,0,0,0.40),
+                    0 8px 40px rgba(0, 0, 0, 0.55);
+  --inset-readout:  0 1px 2px rgba(0, 0, 0, 0.55) inset,
+                    0 0 0 1px rgba(0, 0, 0, 0.30);
+  --inset-well:     0 2px 6px rgba(0, 0, 0, 0.45) inset;
+
+  /* ---- Knob bevel (subtle dome — Braun ABS, not skeuomorphic metal) ---- */
+  --knob-bevel:     radial-gradient(circle at 38% 30%,
+                      #F3EEE0 0%, #EDE7D8 42%, #DCD4C2 100%); /* @kind other */
+  --knob-shadow:    0 2px 3px rgba(40, 36, 28, 0.20),
+                    0 0 0 1px rgba(122, 116, 104, 0.55);
+  --knob-line-w:    3px; /* @kind spacing */
+  --knob-tick-n:    11; /* @kind other */
+
+  /* ---- LED glow (the one warm accent light) ---- */
+  --led-glow:       0 0 5px rgba(217, 154, 51, 0.85);
+  --led-glow-soft:  0 0 3px rgba(217, 154, 51, 0.6);
+
+  /* ---- Focus ---- */
+  --focus-shadow:   0 0 0 3px var(--focus-ring);
+
+  /* ---- Borders ---- */
+  --hairline:       1px solid var(--c-border-soft);
+  --hairline-strong:1px solid var(--c-border);
+
+  /* ---- Motion — calm, no bounce, no overshoot ---- */
+  --dur-fast:   120ms; /* @kind other */
+  --dur-normal: 180ms; /* @kind other */
+  --dur-slow:   260ms; /* @kind other */
+  --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1); /* @kind other */
+  --ease-out:      cubic-bezier(0.2, 0.0, 0.1, 1); /* @kind other */
+
+  /* ---- Floating display: subtle omnidirectional lift for dark wells ---- */
+  --shadow-float: 0 0 0 1px rgba(20, 16, 10, 0.55),
+                  0 1px 2px rgba(30, 25, 16, 0.30),
+                  0 0 18px rgba(30, 25, 16, 0.24);
+
+  /* ---- CRT / display overlays ---- */
+  --crt-scan-overlay: repeating-linear-gradient(
+                        to bottom,
+                        transparent 0, transparent 2px,
+                        var(--crt-scanline) 2px, var(--crt-scanline) 3px); /* @kind other */
+  --crt-vignette:     radial-gradient(120% 140% at 50% 0%,
+                        transparent 55%, rgba(0,0,0,0.45) 100%); /* @kind other */
+  --display-glow:     0 0 8px rgba(240, 181, 71, 0.45);
+}

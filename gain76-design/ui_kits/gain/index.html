@@ -1,0 +1,61 @@
+<!-- @dsCard group="Plugin" viewport="980x980" name="Altered Audio — Gain 76" subtitle="Gain module — hero dial, I/O meters, L/R peak hold" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Altered Audio — Gain 76</title>
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #0b0a09;
+    background-image: radial-gradient(140% 120% at 50% 0%, #1a1815 0%, #0b0a09 70%);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  #stage { transform-origin: center center; }
+  #plugin {
+    position: relative;
+    width: 980px;
+    height: 980px;
+    box-sizing: border-box;
+    display: flex; flex-direction: column;
+    background: var(--surface-base);
+    background-image: linear-gradient(to bottom, rgba(255,253,247,0.5), rgba(255,253,247,0) 120px);
+    border-radius: var(--radius-xl);
+    border: 1px solid #000;
+    box-shadow: var(--shadow-bezel), 0 1px 0 rgba(255,255,255,0.4) inset;
+    overflow: hidden;
+  }
+</style>
+</head>
+<body>
+<div id="stage"><div id="root"></div></div>
+<script type="text/babel" src="gain-app.jsx"></script>
+<script type="text/babel">
+  // Mount the freshest AF_GainApp (the babel-loaded copy overwrites any bundled one).
+  ReactDOM.createRoot(document.getElementById("root")).render(<window.AF_GainApp />);
+</script>
+<script>
+  function fitStage() {
+    var s = document.getElementById("stage");
+    var p = document.getElementById("plugin");
+    if (!s) return;
+    var ph = p ? p.offsetHeight : 1000;
+    var pad = 24;
+    var scale = Math.min((window.innerWidth - pad) / 980, (window.innerHeight - pad) / ph, 1);
+    s.style.transform = "scale(" + scale + ")";
+  }
+  window.addEventListener("resize", fitStage);
+  fitStage();
+  setTimeout(fitStage, 300);
+  setTimeout(fitStage, 800);
+  setTimeout(fitStage, 1600);
+</script>
+</body>
+</html>

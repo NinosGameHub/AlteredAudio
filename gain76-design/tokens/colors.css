@@ -1,0 +1,91 @@
+/* ============================================================
+   AURORA FILTER — Color
+   Retrofuturist audio processing unit, AF-74 MK III.
+   "A vision of the future from 1974." Warm cream ABS plastic,
+   amber CRT phosphor, no RGB, no glow except the display.
+   ============================================================ */
+:root {
+  /* ---- Base palette (from the spec sheet) ---- */
+  --c-dirty-white:  #E6E0D2;  /* base surface — ABS plastic */
+  --c-warm-beige:   #D8D1C1;  /* secondary / recessed surface */
+  --c-cream:        #EDE7D8;  /* lightest cream — knob bodies, raised */
+  --c-sand:         #CFC7B5;  /* pressed / sunken */
+
+  --c-border:       #7A7468;  /* panel borders / hairlines */
+  --c-border-soft:  rgba(122, 116, 104, 0.42);
+  --c-border-strong:#5F5A50;
+
+  --c-ink:          #1F1F1F;  /* primary text */
+  --c-ink-soft:     #5E594E;  /* secondary text */
+  --c-ink-faint:    #908A7D;  /* tertiary / disabled */
+
+  --c-amber:        #D08A2E;  /* accent amber */
+  --c-amber-hi:     #E0A047;  /* hover / lifted */
+  --c-amber-lo:     #B0721F;  /* press / darkened */
+  --c-mustard:      #B8943A;  /* accent mustard */
+  --c-orange:       #C56A2B;  /* warning / over / clip */
+
+  /* ---- Display (CRT phosphor) ---- */
+  --c-graph-bg:     #171717;  /* graph background */
+  --c-graph-line:   #F0B547;  /* graph / spectrum lines */
+  --c-graph-grid:   rgba(240, 181, 71, 0.10);   /* subtle amber grid */
+  --c-graph-grid-x: rgba(240, 181, 71, 0.16);   /* axis line */
+  --c-graph-scan:   rgba(0, 0, 0, 0.22);         /* faint scanline */
+  --c-graph-floor:  #0E0E0E;  /* display vignette / deepest black */
+
+  --c-led:          #D99A33;  /* indicator LEDs (engaged) */
+  --c-led-off:      #6E685C;  /* LED bezel when dark */
+
+  /* ============================================================
+     SEMANTIC ALIASES — author against these.
+     ============================================================ */
+
+  /* Surfaces */
+  --surface-base:    var(--c-dirty-white);
+  --surface-panel:   var(--c-warm-beige);
+  --surface-raised:  var(--c-cream);
+  --surface-sunken:  var(--c-sand);
+  --surface-display: var(--c-graph-bg);
+  --surface-display-floor: var(--c-graph-floor);
+
+  /* Borders */
+  --border-hairline: 1px solid var(--c-border-soft);
+  --border-default:  1px solid var(--c-border);
+  --border-strong:   1px solid var(--c-border-strong);
+  --border-color:    var(--c-border);
+
+  /* Text */
+  --text-primary:    var(--c-ink);
+  --text-secondary:  var(--c-ink-soft);
+  --text-muted:      var(--c-ink-faint);
+  --text-disabled:   var(--c-ink-faint);
+  --text-on-accent:  #1A140A;
+  --text-on-display: var(--c-graph-line);
+
+  /* Accents */
+  --accent-amber:    var(--c-amber);
+  --accent-amber-hover: var(--c-amber-hi);
+  --accent-amber-active: var(--c-amber-lo);
+  --accent-mustard:  var(--c-mustard);
+  --warning:         var(--c-orange);
+
+  /* State */
+  --state-engaged:   var(--c-led);
+  --state-bypassed:  var(--c-led-off);
+  --state-warning:   var(--c-orange);
+  --focus-ring:      rgba(208, 138, 46, 0.34);
+  --overlay-scrim:   rgba(23, 23, 23, 0.55);
+
+  /* Display / graph */
+  --crt-bg:        var(--c-graph-bg);
+  --crt-line:      var(--c-graph-line);
+  --crt-grid:      var(--c-graph-grid);
+  --crt-grid-axis: var(--c-graph-grid-x);
+  --crt-scanline:  var(--c-graph-scan);
+
+  /* Knobs */
+  --knob-body:  var(--c-cream);
+  --knob-line:  var(--c-ink);
+  --knob-dot:   #948D7F;
+  --knob-ring:  var(--c-amber);
+}
