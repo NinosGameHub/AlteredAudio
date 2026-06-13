@@ -197,11 +197,10 @@ void AuroraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w,
         const juce::String label = s.getProperties().getWithDefault("faceLabel", "").toString();
 
         g.setColour(juce::Colour(0xFF2A2620).withAlpha(enabled ? 1.0f : 0.45f));
-        g.setFont(aurora::mono(size * 0.148f));   // spec: fontSize=15 in viewBox-100 = 15%
+        g.setFont(aurora::mono(size * 0.148f));
         g.drawText(value, (int)(cx - rDisc), (int)(cy - size * 0.11f),
                    (int)(rDisc * 2.0f), (int)(size * 0.15f), juce::Justification::centred);
 
-        // larger label, tight tracking — kept above the amber dot's travel arc
         g.setColour(juce::Colour(0xFF6B6353).withAlpha(enabled ? 1.0f : 0.5f));
         g.setFont(aurora::mono(size * 0.062f));
         g.drawFittedText(label,

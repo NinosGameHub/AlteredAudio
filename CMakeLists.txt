@@ -11,7 +11,7 @@
 #  do not change it. LTO is off for fast iteration links.
 # ============================================================
 cmake_minimum_required(VERSION 3.24)
-project(Filter76 VERSION 1.0.0)
+project(Filter76 VERSION 1.0.5)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -37,6 +37,10 @@ juce_add_plugin(Filter76
 
 juce_generate_juce_header(Filter76)
 
+juce_add_binary_data(Filter76BinaryData SOURCES
+    Resources/knob.png
+)
+
 target_sources(Filter76 PRIVATE
     Source/FilterPlugin.cpp
     Source/AuroraFilterEditor.cpp
@@ -52,6 +56,7 @@ target_compile_definitions(Filter76 PUBLIC
 )
 
 target_link_libraries(Filter76 PRIVATE
+    Filter76BinaryData
     juce::juce_audio_utils
     juce::juce_dsp
     PUBLIC
