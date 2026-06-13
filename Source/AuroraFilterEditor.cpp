@@ -1140,14 +1140,6 @@ AuroraFilterEditor::AuroraFilterEditor(juce::AudioProcessor& proc,
                        juce::Justification::centredRight);
         }
 
-        // Wear & tear overlay — PNG's own alpha channel controls scratch/dust opacity.
-        {
-            auto wear = juce::ImageCache::getFromMemory(
-                BinaryData::wear_overlay_png, BinaryData::wear_overlay_pngSize);
-            if (wear.isValid())
-                g.drawImage(wear, 0.0f, 0.0f, (float)kW, (float)kH,
-                            0, 0, wear.getWidth(), wear.getHeight());
-        }
     };
 
     setResizable(true, true);
