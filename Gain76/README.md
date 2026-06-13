@@ -12,6 +12,15 @@ Extracted at commit `9641536` of this repo (gain branch).
 
 ## Changelog
 
+### 2026-06-13 — v1.1.0: In-plugin drag editor
+- **Right-click** on the faceplate opens a context menu: "Edit Layout" / "Save Layout" / "Exit Edit Mode"
+- In edit mode: cyan/orange bordered drag handles per component; drag body to move, drag bottom-right corner to resize
+- Live x/y/w/h readout shown above each component while editing
+- "Save Layout" writes positions to `%AppData%\AlteredAudio\Gain76\layout.json`; positions restored on next startup (`LayoutStore`)
+- `EditOverlay` component covers the content area and intercepts mouse events only over tracked components
+- Fixed knob scale labels to follow the knob's dragged position (no longer hardcoded)
+
+
 ### 2026-06-13 — Design test (TEMPORARY — revert via `design-test` branch in C:\Dev\Gain76)
 - Added `AlteredAudioLookAndFeel.h` + `PluginEditor.h` to `Source/`
 - New editor: vintage cream panel, bakelite rotary knob, amber VU meters, stereo bar
