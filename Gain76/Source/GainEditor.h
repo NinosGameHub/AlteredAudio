@@ -194,6 +194,8 @@ private:
     void timerCallback() override;
     // Draws a numeric string as amber glyph sprites filling a W x H screen cell.
     void drawAmberReadout(juce::Graphics&, int W, int H, const juce::String& num, float scale = 1.0f);
+    // Draws an A-Z word as amber letter sprites, proportionally spaced + centred.
+    void drawAmberWord(juce::Graphics&, int W, int H, const juce::String& word);
     void applyLayout();
     void enterEditMode();
     void exitEditMode();
@@ -294,6 +296,9 @@ private:
     juce::Image logoImg_;          // text_altered_audio.png
     juce::Image gainTextImg_;      // text_gain76.png
     juce::Image glyphImg_[13];     // embossed brass digits: 0-9, '.', '+', '-'
+    juce::Image letterImg_[26];    // amber letters A-Z (for word readouts)
+    int letterX0_[26] = { 0 };     // tight opaque L/R bounds in the @2x glyph
+    int letterX1_[26] = { 0 };     // (for proportional word layout)
 
     LayoutStore layout_;
     bool        editMode_ = false;

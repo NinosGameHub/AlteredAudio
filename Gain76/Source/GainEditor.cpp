@@ -576,6 +576,25 @@ GainEditor::GainEditor(juce::AudioProcessor& proc,
             glyphImg_[i] = loadAsset((juce::String("digits/") + gn[i] + ".png").toRawUTF8());
     }
 
+    // Amber A-Z letter sprites (full-frame @2x, centred x=720, baseline ~721).
+    // Measure each glyph's tight opaque L/R bounds within the shared baseline
+    // band (y 664..727) so words can be laid out proportionally.
+    for (int i = 0; i < 26; ++i)
+    {
+        letterImg_[i] = loadAsset((juce::String("letters/") + (char) ('A' + i) + ".png").toRawUTF8());
+        letterX0_[i] = 688; letterX1_[i] = 752;             // fallback ~ digit cell
+        if (! letterImg_[i].isValid()) continue;
+        const juce::Image& im = letterImg_[i];
+        juce::Image::BitmapData bd(im, juce::Image::BitmapData::readOnly);
+        const int y0 = 664, y1 = 727;
+        int minX = im.getWidth(), maxX = -1;
+        for (int y = y0; y <= y1 && y < im.getHeight(); ++y)
+            for (int x = 0; x < im.getWidth(); ++x)
+                if (bd.getPixelColour(x, y).getAlpha() > 30)
+                { if (x < minX) minX = x; if (x > maxX) maxX = x; }
+        if (maxX >= minX) { letterX0_[i] = minX; letterX1_[i] = maxX; }
+    }
+
     // Attach the meter housings + amber strips to their components (locked)
     inMeter.housingImage  = meterLImg_;
     outMeter.housingImage = meterRImg_;
@@ -781,9 +800,8 @@ GainEditor::GainEditor(juce::AudioProcessor& proc,
         auto* p = apvts.getParameter(ParamID::gainMode);
         const juce::String txt = p ? p->getCurrentValueAsText().toUpperCase()
                                    : juce::String("STEREO");
-        g.setColour(juce::Colour(0xFFE8A23A));
-        g.setFont(gain76::mono(13.0f).withExtraKerningFactor(0.05f));
-        g.drawText(txt, modeScreen_.getLocalBounds(), juce::Justification::centred, false);
+        // Amber letter sprites (rendered in Blender, like the digits) — no font.
+        drawAmberWord(g, modeScreen_.getWidth(), modeScreen_.getHeight(), txt);
     };
     modeScreen_.onLeftClick = [this]() {
         if (auto* p = apvts.getParameter(ParamID::gainMode)) {
@@ -933,6 +951,54 @@ void GainEditor::drawAmberReadout(juce::Graphics& g, int W, int H, const juce::S
                     juce::roundToInt(x0 + (float) i * cellW), juce::roundToInt(y0),
                     juce::roundToInt(cellW), juce::roundToInt(cellH),
                     kSrcX, kSrcY, kSrcW, kSrcH);
+    }
+}
+
+void GainEditor::drawAmberWord(juce::Graphics& g, int W, int H, const juce::String& word)
+{
+    // All letters share the digit baseline band (y 664..727) so they sit on a
+    // common baseline; horizontal placement uses each glyph's tight width.
+    constexpr int srcY0 = 664, srcH = 64;
+    const float pad     = 5.0f;
+    const float gapSrc  = 5.0f;                             // inter-letter gap in source px
+
+    // Sum source widths + gaps, then pick a scale that fits both height and width.
+    const int n = word.length();
+    float srcTotal = 0.0f; int letters = 0;
+    for (int i = 0; i < n; ++i)
+    {
+        const juce::juce_wchar c = word[i];
+        if (c < 'A' || c > 'Z') continue;
+        const int k = c - 'A';
+        srcTotal += (float) (letterX1_[k] - letterX0_[k] + 1);
+        ++letters;
+    }
+    if (letters == 0) return;
+    if (letters > 1) srcTotal += gapSrc * (float) (letters - 1);
+
+    float scale = (float) H * 0.62f / (float) srcH;         // height-based
+    const float maxW = (float) W - 2.0f * pad;
+    if (srcTotal * scale > maxW) scale = maxW / srcTotal;   // clamp to plate width
+
+    const float gap   = gapSrc * scale;
+    const float destH = (float) srcH * scale;
+    const float total = srcTotal * scale;
+    float penX = ((float) W - total) * 0.5f;
+    const float y = ((float) H - destH) * 0.5f;
+    g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
+    for (int i = 0; i < n; ++i)
+    {
+        const juce::juce_wchar c = word[i];
+        if (c < 'A' || c > 'Z') continue;
+        const int k = c - 'A';
+        if (! letterImg_[k].isValid()) continue;
+        const int   sx = letterX0_[k], sw = letterX1_[k] - letterX0_[k] + 1;
+        const float dw = (float) sw * scale;
+        g.drawImage(letterImg_[k],
+                    juce::roundToInt(penX), juce::roundToInt(y),
+                    juce::roundToInt(dw), juce::roundToInt(destH),
+                    sx, srcY0, sw, srcH);
+        penX += dw + gap;
     }
 }
 
