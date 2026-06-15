@@ -21,7 +21,8 @@ The Gain 76 GUI is being rebuilt from Blender-rendered sprites. As of end of thi
   - The Standalone **exe locks while running** → always `Stop-Process -Name 'AlteredAudio Gain 76' -Force` before building.
   - In the Bash tool, backslash paths get mangled (`C:\Dev` → `C:Dev`); **use forward slashes** in quotes.
 - **Git rule:** commits go to the **`gain` branch** of `C:\Users\ninov\OneDrive\Documents\AlteredAudio`. The `C:\Dev\Gain76` working copy (sources, JUCE, build) is still never committed, BUT as of 2026-06-15 the **regenerated knob sprites are now mirrored into the repo at `Gain76/Assets/Export/`** (`knob.png`, `knob_grain.png`, `body_detailed.png`, `body_flat.png`) and tracked — copy updated PNGs there before committing.
-- **Assets:** `C:\dev\gain76\Assets\Export\*.png`, full-frame **@2x = 1440×1440**, loaded at runtime by absolute path via `loadAsset()`. **TODO before release: embed as BinaryData.** Backups live in `Assets\Export\_backup_*` (latest `_backup_20260615`).
+- **Assets:** `C:\dev\gain76\Assets\Export\*.png`, full-frame **@2x = 1440×1440**. `loadAsset()` now checks **`C:/Program Files/Altered Audio/Gain 76`** first (the installed location), then falls back to `C:/dev/gain76/Assets/Export` (dev tree). **TODO before release: embed as BinaryData.** Backups live in `Assets\Export\_backup_*` (latest `_backup_20260615`).
+- **Finished package + installer:** `…\AlteredAudio\Finished_Plugins\Gain_76\Material_UI\` (Source, Assets, Blender, Build, `HANDOFF.md`, `Installer\Gain76_Setup.exe`). The installer (self-contained C# stub, payload embedded) deploys the VST3 → `Program Files\Common Files\VST3\AlteredAudio` and assets → `Program Files\Altered Audio\Gain 76`.
 - **⚠️ Security:** the repo's `origin` remote URL has a **GitHub PAT embedded in plaintext** (`ghp_…`) — rotate it and switch to a credential helper/SSH.
 
 ---

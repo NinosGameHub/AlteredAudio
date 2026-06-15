@@ -16,12 +16,23 @@ namespace
         return juce::jlimit(0.0f, 1.0f, (db - kMeterLo) / (kMeterHi - kMeterLo));
     }
 
-    // Blender-rendered sprites live in Assets/Export (full-frame @2x = 1640x1440).
-    // TODO: switch to embedded BinaryData before release so the plugin is portable.
+    // Blender-rendered sprites (full-frame @2x). The installer deploys them to the
+    // Program Files location below; the dev tree is kept as a fallback so local
+    // builds still find assets without installing. (TODO: embedded BinaryData for
+    // a fully portable, path-free build.)
     inline juce::Image loadAsset(const char* file)
     {
-        return juce::ImageFileFormat::loadFrom(
-            juce::File("C:/dev/gain76/Assets/Export").getChildFile(file));
+        static const char* roots[] = {
+            "C:/Program Files/Altered Audio/Gain 76",   // installed location
+            "C:/dev/gain76/Assets/Export"               // dev-tree fallback
+        };
+        for (auto* root : roots)
+        {
+            const juce::File f = juce::File(root).getChildFile(file);
+            if (f.existsAsFile())
+                return juce::ImageFileFormat::loadFrom(f);
+        }
+        return {};
     }
 }
 
