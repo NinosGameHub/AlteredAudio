@@ -1,0 +1,60 @@
+{
+  "Name": "AlteredAudio Filter 76",
+  "Version": "0.8.0",
+  "Factory Info": {
+    "Vendor": "AlteredAudio",
+    "URL": "",
+    "E-Mail": "",
+    "Flags": {
+      "Unicode": true,
+      "Classes Discardable": false,
+      "Component Non Discardable": false,
+    },
+  },
+  "Classes": [
+    {
+      "CID": "ABCDEF019182FAEB41616C7441466C74",
+      "Category": "Audio Module Class",
+      "Name": "AlteredAudio Filter 76",
+      "Vendor": "AlteredAudio",
+      "Version": "0.8.0",
+      "SDKVersion": "VST 3.7.12",
+      "Sub Categories": [
+        "Fx",
+        "Fx Filter",
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+    {
+      "CID": "ABCDEF011234ABCD41616C7441466C74",
+      "Category": "Component Controller Class",
+      "Name": "AlteredAudio Filter 76",
+      "Vendor": "AlteredAudio",
+      "Version": "0.8.0",
+      "SDKVersion": "VST 3.7.12",
+      "Sub Categories": [
+        "Fx",
+        "Fx Filter",
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+    {
+      "CID": "ABCDEF01C0DEF00D41616C7441466C74",
+      "Category": "Plugin Compatibility Class",
+      "Name": "AlteredAudio Filter 76",
+      "Vendor": "AlteredAudio",
+      "Version": "0.8.0",
+      "SDKVersion": "VST 3.7.12",
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+  ],
+}

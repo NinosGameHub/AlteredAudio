@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Params>
+  <PARAM id="filter_bypass" value="0.0"/>
+  <PARAM id="filter_drive" value="4.099999904632568"/>
+  <PARAM id="filter_freq" value="1961.674438476562"/>
+  <PARAM id="filter_gain" value="0.0"/>
+  <PARAM id="filter_mix" value="1.0"/>
+  <PARAM id="filter_mode" value="0.0"/>
+  <PARAM id="filter_output" value="0.0"/>
+  <PARAM id="filter_oversampling" value="0.0"/>
+  <PARAM id="filter_q" value="0.8637015223503113"/>
+  <PARAM id="filter_slope" value="1.0"/>
+  <PARAM id="filter_type" value="0.0"/>
+  <PARAM id="flt_env_atk_div" value="10.0"/>
+  <PARAM id="flt_env_atk_sync" value="0.0"/>
+  <PARAM id="flt_env_attack" value="9.999998092651367"/>
+  <PARAM id="flt_env_rel_div" value="4.0"/>
+  <PARAM id="flt_env_rel_sync" value="0.0"/>
+  <PARAM id="flt_env_release" value="150.0000152587891"/>
+  <PARAM id="flt_env_sens" value="2.5"/>
+  <PARAM id="flt_lfoa_depth" value="1.0"/>
+  <PARAM id="flt_lfoa_div" value="4.0"/>
+  <PARAM id="flt_lfoa_phase" value="0.0"/>
+  <PARAM id="flt_lfoa_rate" value="7.874386787414551"/>
+  <PARAM id="flt_lfoa_sync" value="0.0"/>
+  <PARAM id="flt_lfoa_wave" value="0.0"/>
+  <PARAM id="flt_lfob_depth" value="1.0"/>
+  <PARAM id="flt_lfob_div" value="4.0"/>
+  <PARAM id="flt_lfob_phase" value="0.0"/>
+  <PARAM id="flt_lfob_rate" value="0.25"/>
+  <PARAM id="flt_lfob_sync" value="0.0"/>
+  <PARAM id="flt_lfob_wave" value="1.0"/>
+  <PARAM id="flt_mod_amount" value="0.0"/>
+  <PARAM id="flt_mod_dest" value="0.0"/>
+  <PARAM id="flt_mod_source" value="1.0"/>
+</Params>

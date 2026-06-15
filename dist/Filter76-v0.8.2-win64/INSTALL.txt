@@ -1,0 +1,56 @@
+ALTERED AUDIO  —  Filter 76  v0.8.2
+VST3 Plugin  |  Windows 64-bit
+=====================================
+
+INSTALLATION — OPTION A (recommended, system-wide)
+----------------------------------------------------
+1. Run install.ps1 by right-clicking it and choosing
+   "Run with PowerShell".  It will ask for admin rights
+   and copy the plugin to the correct location.
+
+INSTALLATION — OPTION B (manual copy)
+--------------------------------------
+1. Copy the folder  "AlteredAudio Filter 76.vst3"
+   into one of these locations:
+
+   System-wide (all users):
+     C:\Program Files\Common Files\VST3\
+
+   Current user only:
+     C:\Users\[YourName]\AppData\Roaming\VST3\
+
+2. Rescan plugins in your DAW.
+
+USER PRESETS
+------------
+Presets you save inside the plugin are stored at:
+  Documents\AlteredAudio\Filter 76\Presets\
+The folder is created automatically on first save.
+
+SYSTEM REQUIREMENTS
+-------------------
+- Windows 10 64-bit or later
+- VST3-compatible DAW
+  (Ableton Live, Bitwig, FL Studio, Reaper, Studio One, etc.)
+- CPU: any modern x86-64 processor
+- Recommended sample rates: 44.1 kHz / 48 kHz
+  (96 kHz not officially tested)
+
+FACTORY PRESETS
+---------------
+  001  INIT           — default state
+  002  ANALOG LOWPASS — warm resonant LP
+  003  ACID SQUELCH   — envelope-modulated squelch
+  004  SLOW SWEEP     — LFO low-pass sweep
+  005  TELEPHONE      — bandpass telephone effect
+  006  NOTCH WOBBLE   — notch with LFO wobble
+
+QUICK START
+-----------
+- Drag the node on the spectrum display to set frequency / Q
+- Scroll the display to adjust drive
+- Double-click the display to reset freq + Q
+- Right-click RATE, ATTACK or RELEASE for tempo-sync options
+- Click the preset number to browse all presets
+- Click SAVE to save your current state as a new preset
+
