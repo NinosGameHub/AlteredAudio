@@ -350,6 +350,16 @@ void Gain76LookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label& l
     label.setColour(juce::Label::textColourId, gain76::textPrimary);
 }
 
+void Gain76LookAndFeel::drawTooltip(juce::Graphics& g, const juce::String& text, int width, int height)
+{
+    g.fillAll(juce::Colour(0xFF0A0805));                       // near-black screen
+    g.setColour(juce::Colour(0xFF3A332A));
+    g.drawRect(0, 0, width, height, 1);                        // subtle bezel
+    g.setColour(juce::Colour(0xFFE8A23A));                     // amber
+    g.setFont(gain76::mono(13.0f).withExtraKerningFactor(0.08f));
+    g.drawText(text, 0, 0, width, height, juce::Justification::centred, true);
+}
+
 // ============================================================
 //  Gain76PowerKey
 // ============================================================
@@ -801,7 +811,8 @@ GainEditor::GainEditor(juce::AudioProcessor& proc,
         const juce::String txt = p ? p->getCurrentValueAsText().toUpperCase()
                                    : juce::String("STEREO");
         // Amber letter sprites (rendered in Blender, like the digits) — no font.
-        drawAmberWord(g, modeScreen_.getWidth(), modeScreen_.getHeight(), txt);
+        // refWord "STEREO" + 0.65 mul => all mode words share one size, 35% smaller.
+        drawAmberWord(g, modeScreen_.getWidth(), modeScreen_.getHeight(), txt, 0.65f, "STEREO");
     };
     modeScreen_.onLeftClick = [this]() {
         if (auto* p = apvts.getParameter(ParamID::gainMode)) {
@@ -811,6 +822,19 @@ GainEditor::GainEditor(juce::AudioProcessor& proc,
         }
     };
     content.addAndMakeVisible(modeScreen_);
+
+    // ---- 4th screen plate (between centre GAIN and OUT): momentary LUFS ----
+    //      Hover shows a "LUFS" tooltip (near-black bg, amber text via the LnF).
+    tooltip_.setLookAndFeel(&lnf);
+    lufsScreen_.setInterceptsMouseClicks(true, false);   // needs hover for tooltip
+    lufsScreen_.setBounds(450, 593, 83, 38);
+    lufsScreen_.setTooltip("LUFS");
+    lufsScreen_.onPaint = [this](juce::Graphics& g) {
+        const float v = juce::jmax(analysis.lufs.load(), -60.0f);   // floor for display
+        drawAmberReadout(g, lufsScreen_.getWidth(), lufsScreen_.getHeight(),
+                         juce::String(v, 1), 0.75f);
+    };
+    content.addAndMakeVisible(lufsScreen_);
 
     // ---- Static faceplate ----
     content.onPaint = [this](juce::Graphics& g) {
@@ -887,6 +911,7 @@ GainEditor::GainEditor(juce::AudioProcessor& proc,
 GainEditor::~GainEditor()
 {
     stopTimer();
+    tooltip_.setLookAndFeel(nullptr);
     setLookAndFeel(nullptr);
 }
 
@@ -954,39 +979,46 @@ void GainEditor::drawAmberReadout(juce::Graphics& g, int W, int H, const juce::S
     }
 }
 
-void GainEditor::drawAmberWord(juce::Graphics& g, int W, int H, const juce::String& word)
+void GainEditor::drawAmberWord(juce::Graphics& g, int W, int H, const juce::String& word,
+                               float sizeMul, const juce::String& refWord)
 {
     // All letters share the digit baseline band (y 664..727) so they sit on a
     // common baseline; horizontal placement uses each glyph's tight width.
     constexpr int srcY0 = 664, srcH = 64;
-    const float pad     = 5.0f;
-    const float gapSrc  = 5.0f;                             // inter-letter gap in source px
+    const float pad    = 5.0f;
+    const float gapSrc = 5.0f;                              // inter-letter gap in source px
 
-    // Sum source widths + gaps, then pick a scale that fits both height and width.
-    const int n = word.length();
-    float srcTotal = 0.0f; int letters = 0;
-    for (int i = 0; i < n; ++i)
-    {
-        const juce::juce_wchar c = word[i];
-        if (c < 'A' || c > 'Z') continue;
-        const int k = c - 'A';
-        srcTotal += (float) (letterX1_[k] - letterX0_[k] + 1);
-        ++letters;
-    }
-    if (letters == 0) return;
-    if (letters > 1) srcTotal += gapSrc * (float) (letters - 1);
+    auto srcWidth = [&](const juce::String& s) -> float {
+        float t = 0.0f; int letters = 0;
+        for (int i = 0; i < s.length(); ++i) {
+            const juce::juce_wchar c = s[i];
+            if (c < 'A' || c > 'Z') continue;
+            const int k = c - 'A';
+            t += (float) (letterX1_[k] - letterX0_[k] + 1); ++letters;
+        }
+        if (letters > 1) t += gapSrc * (float) (letters - 1);
+        return t;
+    };
 
-    float scale = (float) H * 0.62f / (float) srcH;         // height-based
+    const float wordTotal = srcWidth(word);
+    if (wordTotal <= 0.0f) return;
+    const float refTotal = (refWord.isNotEmpty() ? srcWidth(refWord) : wordTotal);
+
+    // Scale: height-based, clamped so the REFERENCE word fits the plate width,
+    // then scaled by sizeMul. Using a fixed reference makes several words render
+    // at the same letter size (STEREO/MONO match).
+    float scale = (float) H * 0.62f / (float) srcH;
     const float maxW = (float) W - 2.0f * pad;
-    if (srcTotal * scale > maxW) scale = maxW / srcTotal;   // clamp to plate width
+    if (refTotal * scale > maxW) scale = maxW / refTotal;
+    scale *= sizeMul;
 
     const float gap   = gapSrc * scale;
     const float destH = (float) srcH * scale;
-    const float total = srcTotal * scale;
+    const float total = wordTotal * scale;
     float penX = ((float) W - total) * 0.5f;
     const float y = ((float) H - destH) * 0.5f;
     g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < word.length(); ++i)
     {
         const juce::juce_wchar c = word[i];
         if (c < 'A' || c > 'Z') continue;
@@ -1031,6 +1063,7 @@ void GainEditor::timerCallback()
     inDisplay_ .repaint();
     outDisplay_.repaint();
     modeScreen_.repaint();
+    lufsScreen_.repaint();
 
     // infinite-hold peak readout (click the PEAK cell to reset)
     const float pk = juce::jmax(oL, oR);

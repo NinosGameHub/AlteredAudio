@@ -88,6 +88,14 @@ public:
         smoother_.setCurrentAndTargetValue(
             juce::Decibels::decibelsToGain(p_gainDb ? p_gainDb->load() : 0.0f));
 
+        {
+            float a, b, c, d;
+            matrixFor(juce::jlimit(0, 2, (int)(p_mode ? p_mode->load() : 0.0f)), a, b, c, d);
+            for (auto* s : { &mtxA_, &mtxB_, &mtxC_, &mtxD_ }) s->reset(sampleRate, 0.02);
+            mtxA_.setCurrentAndTargetValue(a); mtxB_.setCurrentAndTargetValue(b);
+            mtxC_.setCurrentAndTargetValue(c); mtxD_.setCurrentAndTargetValue(d);
+        }
+
         dryBuffer_.setSize(2, samplesPerBlock, false, true, false);
         bypassGain_ = (p_bypass && *p_bypass > 0.5f) ? 0.0f : 1.0f;
 
@@ -181,26 +189,28 @@ private:
     // MODE transform + smoothed gain, optionally inside the oversampler
     void processWet(juce::AudioBuffer<float>& buffer, int osIdx)
     {
-        // MODE: stereo pass-through / mono sum / side signal
+        // MODE: stereo / mono / side, via a smoothed channel matrix so switching
+        // morphs continuously (no click). out_l = a*l+b*r, out_r = c*l+d*r.
         const int mode = juce::jlimit(0, 2, (int)*p_mode);
-        if (mode != 0 && buffer.getNumChannels() >= 2)
+        {
+            float ta, tb, tc, td; matrixFor(mode, ta, tb, tc, td);
+            mtxA_.setTargetValue(ta); mtxB_.setTargetValue(tb);
+            mtxC_.setTargetValue(tc); mtxD_.setTargetValue(td);
+        }
+        const bool mtxSmoothing = mtxA_.isSmoothing() || mtxB_.isSmoothing()
+                               || mtxC_.isSmoothing() || mtxD_.isSmoothing();
+        if ((mode != 0 || mtxSmoothing) && buffer.getNumChannels() >= 2)
         {
             float* l = buffer.getWritePointer(0);
             float* r = buffer.getWritePointer(1);
             const int n = buffer.getNumSamples();
-            if (mode == 1)          // MONO — sum on both channels
+            for (int i = 0; i < n; ++i)
             {
-                for (int i = 0; i < n; ++i)
-                    l[i] = r[i] = 0.5f * (l[i] + r[i]);
-            }
-            else                    // SIDE — solo the side signal
-            {
-                for (int i = 0; i < n; ++i)
-                {
-                    const float s = 0.5f * (l[i] - r[i]);
-                    l[i] = s;
-                    r[i] = -s;
-                }
+                const float a = mtxA_.getNextValue(), b = mtxB_.getNextValue();
+                const float c = mtxC_.getNextValue(), d = mtxD_.getNextValue();
+                const float L = l[i], R = r[i];
+                l[i] = a * L + b * R;
+                r[i] = c * L + d * R;
             }
         }
 
@@ -275,6 +285,18 @@ private:
     std::atomic<float>* p_oversamp = nullptr;
 
     juce::LinearSmoothedValue<float> smoother_;
+    // Channel matrix [a b; c d] (out_l=a*l+b*r, out_r=c*l+d*r), smoothed so a
+    // Stereo/Mono/Side switch morphs continuously instead of clicking.
+    juce::LinearSmoothedValue<float> mtxA_, mtxB_, mtxC_, mtxD_;
+    static void matrixFor(int mode, float& a, float& b, float& c, float& d)
+    {
+        switch (mode)
+        {
+            case 1: a = b = c = d = 0.5f; break;                       // mono
+            case 2: a = 0.5f; b = -0.5f; c = -0.5f; d = 0.5f; break;   // side
+            default: a = 1.0f; b = 0.0f; c = 0.0f; d = 1.0f; break;    // stereo
+        }
+    }
     float bypassGain_ = 1.0f;
     juce::AudioBuffer<float> dryBuffer_;
 

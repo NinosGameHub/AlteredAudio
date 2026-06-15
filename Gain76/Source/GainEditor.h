@@ -108,6 +108,8 @@ public:
                       int, int, int, int, juce::ComboBox&) override;
     juce::Font getComboBoxFont(juce::ComboBox&) override;
     void positionComboBoxText(juce::ComboBox&, juce::Label&) override;
+    // Vintage tooltip: near-black background, amber text.
+    void drawTooltip(juce::Graphics&, const juce::String& text, int width, int height) override;
 };
 
 // ============================================================
@@ -195,13 +197,16 @@ private:
     // Draws a numeric string as amber glyph sprites filling a W x H screen cell.
     void drawAmberReadout(juce::Graphics&, int W, int H, const juce::String& num, float scale = 1.0f);
     // Draws an A-Z word as amber letter sprites, proportionally spaced + centred.
-    void drawAmberWord(juce::Graphics&, int W, int H, const juce::String& word);
+    // sizeMul scales the glyph height; refWord (if set) fixes the scale so several
+    // words render at the SAME letter size (e.g. STEREO and MONO match).
+    void drawAmberWord(juce::Graphics&, int W, int H, const juce::String& word,
+                       float sizeMul = 1.0f, const juce::String& refWord = {});
     void applyLayout();
     void enterEditMode();
     void exitEditMode();
 
     // ---- Faceplate background + right-click hook ----
-    struct PaintDelegate : juce::Component
+    struct PaintDelegate : juce::Component, public juce::SettableTooltipClient
     {
         std::function<void(juce::Graphics&)> onPaint;
         std::function<void(const juce::MouseEvent&)> onRightClick;
@@ -241,6 +246,8 @@ private:
     PaintDelegate inDisplay_;     // far-left screen: input level (dB)
     PaintDelegate outDisplay_;    // far-right screen: output level (dB)
     PaintDelegate modeScreen_;    // 2nd screen (IN<->GAIN): STEREO/MONO toggle
+    PaintDelegate lufsScreen_;    // 4th screen (GAIN<->OUT): momentary LUFS
+    juce::TooltipWindow tooltip_ { this, 500 };   // hover popups (LUFS, ...)
 
     struct ClickZone : juce::Component
     {

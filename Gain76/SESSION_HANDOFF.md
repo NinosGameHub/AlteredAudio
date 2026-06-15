@@ -78,6 +78,7 @@ Blender "numbers" **collection** holds embossed-brass glyph objects `Num_0…Num
 - `blender_digits.py` / `blender_digits_amber.py` / `blender_digits_brass.py` — render the 0-9(+ . + −) glyph set via a temp origin proto (Michroma, extrude 0.0175, bevel 0.004/res2, align_x CENTER + **align_y BOTTOM_BASELINE**, size 0.62). Amber = material `LED_Amber` (emission (1,0.4,0.05)); brass = `Dull_Brass.002`. **Currently the digits/ folder holds the AMBER set** (for the dark screen).
 - `blender_letters_amber.py` — renders the amber **A–Z** glyph set (same proto/material/size/baseline as `blender_digits_amber.py`) to `Assets/Export/letters/A.png…Z.png`. Lets the plugin spell words (STEREO/MONO/…) from sprites instead of a font. Editor loads them into `letterImg_[26]`, measures each glyph's tight L/R bounds within the shared baseline band (y 664–727), and `drawAmberWord()` lays them out proportionally, centred, width-fitted to the plate. Used by the STEREO/MONO mode screen.
 - `blender_numbers_folder.py` — builds the "numbers" collection of brass glyph objects.
+- `blender_letters_folder.py` — builds the "letters" collection of brass A–Z glyph objects (organisational, `hide_render=True`), analogous to "numbers".
 - `make_grain2.py` — builds `knob_grain.png` (the live grain overlay).
 - `feather_knob.py` — post-process on `knob.png` that feathers the outer alpha (full to r=240, →0 by r=262) so `Knob_Rim`'s bright beveled edge stops reading as a pale "white-washed" ring against the faceplate. **Run AFTER `blender_render.py`** (which regenerates `knob.png`). Full knob pipeline: `blender_render.py` → `feather_knob.py` → `make_grain2.py`.
 - `blender_screen_glow.py` — builds the amber glowing-screen material on `Screen_plate` (`SCR_GlowFalloff` ramp = glow size, `SCR_Strength` = brightness, `SCR_Grain`, `SCR_Scan` scanlines; emission color on the Principled BSDF). NOTE: nodes were given `.label`s so they're findable in the editor.
@@ -113,7 +114,9 @@ Blender "numbers" **collection** holds embossed-brass glyph objects `Num_0…Num
 ---
 
 ## 8. Open threads / TODO
-- 4 **side screens are empty** — wire PEAK / LUFS / MODE / OVERSAMPLING (controls exist, currently `addChildComponent` hidden).
+- **Info-line screens (5 cells):** far-left = **input peak (dB)**, 2nd = **STEREO/MONO** click-toggle (amber letter sprites, `drawAmberWord`, refWord "STEREO" ×0.65 so words match size), centre = **gain**, 4th = **momentary LUFS** (`analysis.lufs`; hover tooltip "LUFS" via `Gain76LookAndFeel::drawTooltip` = near-black bg + amber), far-right = **output peak (dB)**. In/out screens are peak-hold, reset on input silence. Remaining empty: none — next could be OVERSAMPLING.
+- **Mode pop fixed:** Stereo/Mono/Side now crossfade via a smoothed channel matrix (`mtxA_..D_`, 20 ms) in `GainProcessor::processWet` instead of an instant swap.
+- Amber **letter sprites** (`letters/A.png…Z.png`) + the "letters" Blender collection now exist — any label can be written with sprites.
 - **Amber screen glow** on `Screen_plate` is essentially off (`SCR_Strength` was being tuned, last seen ≈ −0.168 = no glow). Decide final glow level; bloom to be added in JUCE.
 - Clean `.004`'s leftover inset edges (or rebuild it as a clean box).
 - Center readout digits are small in the 78×38 screen — may want to enlarge.
