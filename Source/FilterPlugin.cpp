@@ -2,6 +2,7 @@
 #include "FilterModule.h"
 #include "ParameterIDs.h"
 #include "AuroraFilterEditor.h"
+#include "Prime76Editor.h"
 
 using APVTS = juce::AudioProcessorValueTreeState;
 using PID   = juce::ParameterID;
@@ -196,7 +197,7 @@ public:
 
     juce::AudioProcessorEditor* createEditor() override
     {
-        return new AuroraFilterEditor(*this, apvts_, analysis_);
+        return new Prime76Editor(*this, apvts_, analysis_);
     }
 
 protected:

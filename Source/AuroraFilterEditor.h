@@ -362,7 +362,15 @@ private:
     float specWork[kSpecPoints] = {};
 
     static constexpr float kMinF = 20.0f, kMaxF = 20000.0f;
-    static constexpr float kDbTop = 12.0f, kDbBot = -30.0f;
+    static constexpr float kDbTop = 24.0f, kDbBot = -24.0f;
+
+    // Chroma-aberration motion trail on the response curve.
+    // ⇩ set to false to revert to the EXACT original plain curve. ⇩
+    static constexpr bool kChromaCurve = true;
+    static constexpr int  kCurveHist   = 7;
+    static constexpr int  kCurveStride = 3;   // push every Nth frame (higher = slower trail)
+    juce::Array<juce::Path> curveHist;
+    int curveTick = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ResponseDisplay)
 };

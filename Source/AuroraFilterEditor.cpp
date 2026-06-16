@@ -512,10 +512,11 @@ void ResponseDisplay::paint(juce::Graphics& g)
     const float nodeY = yForDb(juce::jlimit(kDbBot, kDbTop,
                                 nodeDbFor((int)type, q, gain)), h);
 
-    // dark precision glass — even tone, no baked-in lighting anywhere
+    // dark precision glass — slightly transparent so the faceplate's baked
+    // screen-line texture blends through very subtly behind the graphics.
     {
-        juce::ColourGradient bg(juce::Colour(0xFF171511), 0.0f, 0.0f,
-                                juce::Colour(0xFF11100D), 0.0f, h, false);
+        juce::ColourGradient bg(juce::Colour(0xEC171511), 0.0f, 0.0f,
+                                juce::Colour(0xEC11100D), 0.0f, h, false);
         g.setGradientFill(bg);
         g.fillRoundedRectangle(0.0f, 0.0f, w, h, 10.0f);
     }
@@ -525,7 +526,7 @@ void ResponseDisplay::paint(juce::Graphics& g)
     for (float f : { 20.f, 50.f, 100.f, 200.f, 500.f, 1000.f, 2000.f, 5000.f, 10000.f, 20000.f })
         g.drawVerticalLine((int)xForFreq(f, w), 4.0f, h - 18.0f);
     g.setColour(aurora::graphLine.withAlpha(0.06f));
-    for (float db : { 6.f, -6.f, -12.f, -18.f, -24.f })
+    for (float db : { 18.f, 12.f, 6.f, -6.f, -12.f, -18.f })
         g.drawHorizontalLine((int)yForDb(db, h), 4.0f, w - 4.0f);
     g.setColour(aurora::graphLine.withAlpha(0.16f));
     g.drawHorizontalLine((int)yForDb(0.0f, h), 4.0f, w - 4.0f);
@@ -632,6 +633,30 @@ void ResponseDisplay::paint(juce::Graphics& g)
         if (i == 0) curve.startNewSubPath(px, py);
         else        curve.lineTo(px, py);
     }
+    // Chroma-aberration motion trail: lagging red/cyan ghosts of recent curves
+    // (when the curve moves they fan out into an RGB-split trail; when still they
+    // overlap into a subtle aberration glow). kChromaCurve=false -> exact original.
+    if (kChromaCurve)
+    {
+        if (curveTick++ % kCurveStride == 0)         // sample less often -> longer/slower trail
+        {
+            curveHist.add(curve);
+            while (curveHist.size() > kCurveHist) curveHist.remove(0);
+        }
+        const int n = curveHist.size();
+        for (int k = 0; k < n - 1; ++k)               // skip newest (drawn sharp below)
+        {
+            const float age = (float) k / (float) juce::jmax(1, n - 1);   // 0 old .. 1 new
+            const float al  = 0.05f + 0.13f * age;
+            const float dx  = 1.0f + (1.0f - age) * 4.5f;                 // older = wider split
+            const juce::PathStrokeType st(1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+            g.setColour(juce::Colour(0xFFFF3B5C).withAlpha(al));          // red, shifted left
+            g.strokePath(curveHist.getReference(k), st, juce::AffineTransform::translation(-dx, 0.0f));
+            g.setColour(juce::Colour(0xFF3BD8FF).withAlpha(al));          // cyan, shifted right
+            g.strokePath(curveHist.getReference(k), st, juce::AffineTransform::translation(dx, 0.0f));
+        }
+    }
+
     // response curve — soft glow underneath, crisp bright line on top
     g.setColour(aurora::curveGlow.withAlpha(0.40f));
     g.strokePath(curve, juce::PathStrokeType(5.0f, juce::PathStrokeType::curved,
@@ -664,13 +689,13 @@ void ResponseDisplay::paint(juce::Graphics& g)
         const float lx = juce::jlimit(2.0f, w - 38.0f, xForFreq(f, w) - 18.0f);
         g.drawText(lbl, (int)lx, (int)h - 16, 40, 12, juce::Justification::centred);
     }
-    for (float db : { 6.f, 0.f, -6.f, -12.f, -18.f, -24.f })
+    for (float db : { 12.f, 0.f, -12.f })   // drop +24/-24 edge labels
         g.drawText(juce::String((int)db), 4, (int)yForDb(db, h) - 6, 28, 11,
                    juce::Justification::centredLeft);
     g.setColour(aurora::graphLine.withAlpha(0.55f));
     g.setFont(aurora::mono(9.5f));
-    g.drawText("dB", 6, 4, 24, 11, juce::Justification::centredLeft);
-    g.drawText("Hz", (int)w - 28, (int)h - 16, 22, 12, juce::Justification::centredRight);
+    g.drawText("24", 6, 4, 24, 11, juce::Justification::centredLeft);   // top of scale (+24 dB)
+    // (no "Hz" axis title — the "20k" label stands on its own)
 }
 
 // ============================================================
@@ -736,7 +761,7 @@ LfoScope::LfoScope(juce::AudioProcessorValueTreeState& vts, FilterAnalysisSource
 void LfoScope::paint(juce::Graphics& g)
 {
     const float w = (float)getWidth(), h = (float)getHeight();
-    g.setColour(aurora::graphBg);
+    g.setColour(aurora::graphBg.withAlpha(0.84f));   // let faceplate scan-lines blend through (more visible)
     g.fillRoundedRectangle(0.0f, 0.0f, w, h, 3.0f);
     g.setColour(aurora::graphLine.withAlpha(0.16f));
     g.drawHorizontalLine((int)(h * 0.5f), 2.0f, w - 2.0f);
@@ -745,13 +770,21 @@ void LfoScope::paint(juce::Graphics& g)
     const auto* pW = apvts.getRawParameterValue(waveId);
     const int wave = pW ? (int)pW->load() : 0;
 
+    const auto depthId = (lfoIndex == 0) ? ParamID::fltLfoADepth : ParamID::fltLfoBDepth;
+    const auto* pD = apvts.getRawParameterValue(depthId);
+    const float depth = pD ? juce::jlimit(0.0f, 1.0f, pD->load()) : 1.0f;
+
+    const auto phaseId = (lfoIndex == 0) ? ParamID::fltLfoAPhase : ParamID::fltLfoBPhase;
+    const auto* pP = apvts.getRawParameterValue(phaseId);
+    const float phase = pP ? pP->load() / 360.0f : 0.0f;   // 0..1 cycle offset
+
     // Three cycles of the selected waveform (spec: cycles={3})
     juce::Path p;
-    juce::Random seeded(42);   // stable preview for RANDOM
-    float held = seeded.nextFloat() * 2.0f - 1.0f;
+    float rnd[16];             // stable sample&hold levels for RANDOM
+    { juce::Random rr(7); for (auto& x : rnd) x = rr.nextFloat() * 1.7f - 0.85f; }
     for (int i = 0; i <= 140; ++i)
     {
-        const float t  = (float)i / 140.0f * 3.0f;
+        const float t  = (float)i / 140.0f * 3.0f + phase;   // PHASE shifts the waveform
         const float fr = t - std::floor(t);
         float v = 0.0f;
         switch (wave)
@@ -759,15 +792,10 @@ void LfoScope::paint(juce::Graphics& g)
             case 0: v = std::sin(juce::MathConstants<float>::twoPi * fr); break;
             case 1: v = 4.0f * std::abs(fr - 0.5f) - 1.0f;                break;
             case 2: v = fr < 0.5f ? 1.0f : -1.0f;                          break;
-            case 3:
-                if (i > 0 && fr < (float)(i - 1) / 140.0f * 2.0f
-                              - std::floor((float)(i - 1) / 140.0f * 2.0f))
-                    held = seeded.nextFloat() * 2.0f - 1.0f;
-                v = held;
-                break;
+            case 3: v = rnd[(int)(t * 3.0f) & 15]; break;   // 3 sample&hold steps per cycle
         }
         const float px = (float)i / 140.0f * w;
-        const float py = h * 0.5f - v * h * 0.38f;
+        const float py = h * 0.5f - v * depth * h * 0.38f;   // amplitude tracks DEPTH
         if (i == 0) p.startNewSubPath(px, py);
         else        p.lineTo(px, py);
     }
@@ -775,9 +803,16 @@ void LfoScope::paint(juce::Graphics& g)
     g.strokePath(p, juce::PathStrokeType(1.6f));
 
     // Phase cursor (scaled to 3-cycle display)
-    const float ph = analysis.lfoPhase.load();
-    g.setColour(aurora::led.withAlpha(0.8f));
-    g.drawVerticalLine((int)(ph / 3.0f * w), 2.0f, h - 2.0f);
+    // cursor only sweeps while THIS lfo is the active mod source; otherwise it stops
+    const auto* pSrc = apvts.getRawParameterValue(ParamID::fltModSource);
+    const int src = pSrc ? (int) pSrc->load() : 0;   // 0 OFF · 1 LFO A · 2 LFO B · 3 ENV
+    const bool active = (src == 1 && lfoIndex == 0) || (src == 2 && lfoIndex == 1);
+    if (active)
+    {
+        const float ph = juce::jlimit(0.0f, 1.0f, analysis.lfoPhase.load());
+        g.setColour(aurora::led.withAlpha(0.8f));
+        g.drawVerticalLine((int)(ph * w), 2.0f, h - 2.0f);   // sweep the full window
+    }
 }
 
 // ============================================================
@@ -794,7 +829,7 @@ void EnvScope::push(float v)
 void EnvScope::paint(juce::Graphics& g)
 {
     const float w = (float)getWidth(), h = (float)getHeight();
-    g.setColour(aurora::graphBg);
+    g.setColour(aurora::graphBg.withAlpha(0.84f));   // let faceplate scan-lines blend through (more visible)
     g.fillRoundedRectangle(0.0f, 0.0f, w, h, 3.0f);
 
     juce::Path line;
