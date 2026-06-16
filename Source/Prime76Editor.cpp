@@ -143,15 +143,19 @@ void FooterStrip::paint(juce::Graphics& g)
     g.setOpacity(0.45f);
     glyphs->drawString(g, { 14.0f, 0.0f, glyphs->textWidth("SYSTEM", gh) + 4.0f, h }, "SYSTEM", kFrac);
 
-    // a label+value group, centred on cx (label tight with its value)
-    auto grpAt = [&](float cx, const juce::String& lbl, const juce::String& val)
+    // a label+value group, centred on cx (label tight with its value).
+    // Returns the group's bounds so callers can register a hit area.
+    auto grpAt = [&](float cx, const juce::String& lbl, const juce::String& val) -> juce::Rectangle<float>
     {
         const float lw = lbl.isEmpty() ? 0.0f : glyphs->textWidth(lbl, gh);
         const float vw = val.isEmpty() ? 0.0f : glyphs->textWidth(val, gh);
         const float gap = (lbl.isNotEmpty() && val.isNotEmpty()) ? inGap : 0.0f;
-        float x = cx - (lw + gap + vw) * 0.5f;
+        const float total = lw + gap + vw;
+        float x = cx - total * 0.5f;
+        const juce::Rectangle<float> grp { x, 0.0f, total, h };
         if (lbl.isNotEmpty()) { g.setOpacity(0.45f); glyphs->drawString(g, { x, 0.0f, lw + 4.0f, h }, lbl, kFrac); x += lw + gap; }
         if (val.isNotEmpty()) { g.setOpacity(1.0f);  glyphs->drawString(g, { x, 0.0f, vw + 4.0f, h }, val, kFrac); }
+        return grp;
     };
     struct Sec { juce::String lbl, val; };
     const Sec secs[6] = {
@@ -162,8 +166,25 @@ void FooterStrip::paint(juce::Graphics& g)
         { "SIGNAL PATH", "STEREO" },
         { "",            "V1.0.9" } };
     for (int i = 0; i < 6; ++i)
-        grpAt(w * (0.20f + 0.75f * (float) i / 5.0f), secs[i].lbl, secs[i].val);   // dispersed evenly
+    {
+        auto grp = grpAt(w * (0.20f + 0.75f * (float) i / 5.0f), secs[i].lbl, secs[i].val);  // dispersed evenly
+        if (i == 1) osHit = grp.expanded(8.0f, 0.0f);   // OVERSAMP — clickable to cycle
+    }
     g.setOpacity(1.0f);
+}
+
+void FooterStrip::mouseDown(const juce::MouseEvent& e)
+{
+    if (apvts == nullptr || ! osHit.contains(e.position)) return;
+    if (auto* p = apvts->getParameter("filter_oversampling"))
+    {
+        const int n = juce::jmax(1, (int) p->getNumSteps());
+        const int cur = juce::roundToInt(p->getValue() * (float) (n - 1));
+        p->beginChangeGesture();
+        p->setValueNotifyingHost((float) ((cur + 1) % n) / (float) (n - 1));
+        p->endChangeGesture();
+    }
+    repaint();
 }
 
 // ------------------------------------------------------------
@@ -267,6 +288,8 @@ Prime76Editor::Prime76Editor(juce::AudioProcessor& p,
 
     peakReadout.glyphs = &glyphs; peakReadout.analysis = &analysis;
     addAndMakeVisible(peakReadout);
+    addAndMakeVisible(meterL);
+    addAndMakeVisible(meterR);
 
     footer.glyphs = &glyphs; footer.analysis = &analysis; footer.apvts = &apvts; footer.proc = &p;
     addAndMakeVisible(footer);
@@ -311,8 +334,12 @@ Prime76Editor::~Prime76Editor()
 {
     stopTimer();
     for (auto* k : all) k->slider.setLookAndFeel(nullptr);
-    for (auto* b : { &hPrev, &hNext, &hSave, &hA, &hB, &hPwr, &hOS }) b->setLookAndFeel(nullptr);
-    hName.setLookAndFeel(nullptr); hMix.setLookAndFeel(nullptr);
+    for (auto* b : { &hPrev, &hNext, &hSave, &hA, &hB, &hPwr, &hName }) b->setLookAndFeel(nullptr);
+    // drop our refs to the decoded sprites, then let the cache reclaim them
+    faceplate = juce::Image();
+    lnf.knobImage = juce::Image();
+    lnf.indicatorImage = juce::Image();
+    juce::ImageCache::releaseUnusedImages();
 }
 
 void Prime76Editor::addKnob(Knob& k, const juce::String& paramId, int cx, int cy, int diam)
@@ -339,7 +366,12 @@ void Prime76Editor::timerCallback()
     if (wantLfo != boundLfo || wantSync != boundLfoSync) rebindLfo(wantLfo, wantSync);
 
     for (auto& r : readouts) r.tick();
-    peakReadout.tick();
+    // one peak read per frame feeds BOTH the dB readout and the meters
+    const float pkL = analysis.peakL.exchange(0.0f);
+    const float pkR = analysis.peakR.exchange(0.0f);
+    peakReadout.setLevels(pkL, pkR);
+    meterL.setLevel(pkL);
+    meterR.setLevel(pkR);
     footer.tick();
     waveSelect.repaint();
     updateHeader();
@@ -365,17 +397,17 @@ void Prime76Editor::applyDefaultPositions()
     for (int i = 0; i < 6; ++i) modLabels[i].setBounds(mx[i], myy[i], 104, 22);
 
     peakReadout.setBounds(1232, 93, 102, 22);                 // screen above the meters
+    meterL.setBounds(1239, 133, 32, 265);                     // live L/R level over the LED columns
+    meterR.setBounds(1295, 133, 32, 265);
     footer.setBounds(30, 851, 1321, 30);                      // bottom info line
     waveSelect.setBounds(383, 807, 113, 16);                  // 4 LFO wave screens below the scope
 
-    // header line controls (strip at y26..56)
+    // header line controls (strip at y26..56) — preset group centred on the line
     const int hy = 30, hh = 22;
-    hPrev.setBounds(486, hy, 22, hh);
-    hName.setBounds(510, hy, 180, hh);
-    hNext.setBounds(692, hy, 22, hh);
-    hSave.setBounds(720, hy, 50, hh);
-    hOS  .setBounds(1000, hy, 44, hh);
-    hMix .setBounds(1052, hy, 72, hh);
+    hPrev.setBounds(561, hy, 22, hh);
+    hName.setBounds(585, hy, 180, hh);
+    hNext.setBounds(767, hy, 22, hh);
+    hSave.setBounds(795, hy, 50, hh);   // group spans 561..845, centred at ~703
     hA   .setBounds(1150, hy, 26, hh);
     hB   .setBounds(1178, hy, 26, hh);
     hPwr .setBounds(1300, hy, 44, hh);
@@ -384,18 +416,16 @@ void Prime76Editor::applyDefaultPositions()
 void Prime76Editor::buildHeader()
 {
     headerLnF.glyphs = &glyphs;
-    for (auto* b : { &hPrev, &hNext, &hSave, &hA, &hB, &hPwr, &hOS })
+    for (auto* b : { &hPrev, &hNext, &hSave, &hA, &hB, &hPwr, &hName })
     { b->setLookAndFeel(&headerLnF); addAndMakeVisible(*b); }
     hA.setClickingTogglesState(true);
     hB.setClickingTogglesState(true);
     hPwr.setClickingTogglesState(true);
 
-    hName.setColour(juce::Label::backgroundColourId, juce::Colour(0xFF120D07));
-    hName.setLookAndFeel(&headerLnF);
-    addAndMakeVisible(hName);
-    hMix.setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    hMix.setLookAndFeel(&headerLnF);
-    addAndMakeVisible(hMix);
+    // preset browser overlay (black bg + glyph font)
+    presetBrowser.glyphs = &glyphs;
+    presetBrowser.onPick = [this](int i){ gotoPreset(i); };
+    addChildComponent(presetBrowser);   // hidden until hName clicked
 
     initState = apvts.copyState();
     abSlot[0] = apvts.copyState();
@@ -404,6 +434,7 @@ void Prime76Editor::buildHeader()
 
     hPrev.onClick = [this]{ gotoPreset(presetIdx - 1); };
     hNext.onClick = [this]{ gotoPreset(presetIdx + 1); };
+    hName.onClick = [this]{ refreshPresetList(); presetBrowser.open(presets); };  // open browser
     hSave.onClick = [this]{ saveCurrentPreset(); };
     hA.onClick    = [this]{ setAB(0); };
     hB.onClick    = [this]{ setAB(1); };
@@ -413,10 +444,6 @@ void Prime76Editor::buildHeader()
             p->setValueNotifyingHost(hPwr.getToggleState() ? 0.0f : 1.0f); };  // on = powered
     if (auto* pb = apvts.getRawParameterValue(ParamID::filterBypass))
         hPwr.setToggleState(*pb < 0.5f, juce::dontSendNotification);
-    hOS.onClick   = [this]{
-        if (auto* p = apvts.getParameter(ParamID::filterOversamp))
-        { const int cur = juce::roundToInt(p->getValue() * 2.0f);
-          p->setValueNotifyingHost((float)((cur + 1) % 3) / 2.0f); } };
 }
 
 void Prime76Editor::refreshPresetList()
@@ -431,7 +458,7 @@ void Prime76Editor::gotoPreset(int idx)
     if (presets.isEmpty()) return;
     presetIdx = (idx % presets.size() + presets.size()) % presets.size();
     const auto nm = presets[presetIdx];
-    hName.setText(nm, juce::dontSendNotification);
+    hName.setButtonText(nm);
     if (presetIdx == 0) apvts.replaceState(initState.createCopy());
     else { auto vt = PresetManager::load(nm); if (vt.isValid()) apvts.replaceState(vt); }
 }
@@ -450,7 +477,7 @@ void Prime76Editor::saveCurrentPreset()
                 const auto nm = aw->getTextEditorContents("n").trim().toUpperCase();
                 if (nm.isNotEmpty() && PresetManager::save(nm, apvts))
                 { refreshPresetList(); presetIdx = presets.indexOf(nm);
-                  hName.setText(nm, juce::dontSendNotification); }
+                  hName.setButtonText(nm); }
             }
             delete aw;
         }), false);
@@ -467,12 +494,6 @@ void Prime76Editor::setAB(int slot)
 
 void Prime76Editor::updateHeader()
 {
-    static const char* osN[3] = { "1x", "4x", "8x" };
-    if (auto* pOs = apvts.getRawParameterValue(ParamID::filterOversamp))
-        hOS.setButtonText(osN[juce::jlimit(0, 2, (int) pOs->load())]);
-    if (auto* pMix = apvts.getRawParameterValue(ParamID::filterMix))
-        hMix.setText("MIX " + juce::String(juce::roundToInt(pMix->load() * 100.0f)) + "%",
-                     juce::dontSendNotification);
     if (auto* pb = apvts.getRawParameterValue(ParamID::filterBypass))
         hPwr.setToggleState(*pb < 0.5f, juce::dontSendNotification);
 }
@@ -563,6 +584,7 @@ void Prime76Editor::resized()
     envScope.setBounds(887, 716,  204,  79);   // Env_Scope_Glass
     optionLeds.setBounds(getLocalBounds());
     layoutEditor.setBounds(getLocalBounds());
+    presetBrowser.setBounds(getLocalBounds());
     // NB: label/readout positions come from applyDefaultPositions() + saved layout,
     //     so resized() must not reset them.
 }

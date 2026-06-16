@@ -43,15 +43,66 @@ Blender GUI but often doesn't SAVE** — the headless render reads the disk file
 re-rendering, `bpy.ops.wm.save_mainfile()` via the socket (or have them Ctrl+S). Several requested
 re-renders (slope plate, freq container) showed **no change** because the edits weren't in the file.
 
-**Remaining / next (task #8):** live **output meters** — the `Meter_L/R`/`MeterStrip_L/R` are baked
-static in the faceplate; need a `VerticalMeter`-style overlay driven by `analysis.peakL/R` (reuse
-Gain 76's `VerticalMeter` + a `meter_strip` sprite). Also pending on the user saving Blender edits:
-re-render freq-display container if resized. Glyph font lacks `%` `/` lowercase (kept values
-unit-light) — render those glyphs if needed.
+**Remaining / next:** pending on the user saving Blender edits: re-render freq-display container if
+resized. Glyph font lacks `%` `/` lowercase (kept values unit-light) — render those glyphs if needed.
+Optional further RAM: faceplate → RGB (drop unused alpha, ~1-2 MB). _Task #8 (meters) is DONE — see
+the 2026-06-16 (PM) block below._
 
 **Working style (user):** iterates fast, many small visual tweaks; **act on their visual judgment,
 don't argue pixel measurements** — adjust or give them a control (see
 `[[feedback-visual-not-measurements]]`). Flag design decisions, they revert freely.
+
+---
+
+## ⭐ Session handoff — 2026-06-16 (PM): UI tweaks, live meters, RAM opt
+
+**Status: all built + installed to `C:\Program Files\Common Files\VST3\Filter76 Prime.vst3`.
+NOT yet committed/pushed — uncommitted on `filter-prime`.**
+
+**Header / footer changes (`Prime76Editor`):**
+- LFO A **rate default → 0.2** Hz (`FilterPlugin.cpp` `fltLfoARate`).
+- Preset group (`< name > SAVE`) **centred** on the header line (~x703); `applyDefaultPositions`.
+- **MIX removed** from the header (briefly was a drag readout — reverted, `DragReadout` deleted).
+- **OS button removed** from the header. Oversampling is now changed by **clicking "OVERSAMP" in
+  the footer info-line** (`FooterStrip::mouseDown` + `osHit` rect set in paint; cycles 1x/4x/8x).
+- **Preset browser**: `hName` is now a `juce::TextButton`; clicking it opens `PresetBrowser` — a
+  centred **black panel** listing presets in the glyph font (click row = load, click-outside/Esc =
+  close). `addChildComponent` (hidden until opened), bounds = full editor in `resized()`.
+
+**Live meters (task #8 DONE) — Gain 76 recipe, no new sprites:**
+- `VerticalMeter` (in `Prime76Editor.h`): decaying display level `disp = max(lin, disp*0.84)`,
+  dB→Y map (`kLo=-42, kHi=3`). The plate LEDs are baked **fully lit**, so the meter **DIMS the
+  segments above the live level** (overlay `0xFF15100A` @ 0.88). Idle ⇒ columns read dark = proof
+  it's live.
+- Bounds (editor coords): **meterL x1239 y133 w32 h265**, **meterR x1295 …** (LED columns measured
+  from the faceplate at 0.5×: L 1242–1267, R 1298–1323, y136–395).
+- **Peak feed**: one `analysis.peakL/R.exchange(0)` per timer frame in `timerCallback` feeds BOTH
+  `peakReadout.setLevels()` and `meterL/R.setLevel()` (don't double-`exchange`!). `PeakReadout::tick()`
+  removed, replaced by `setLevels(l,r)`.
+
+**RAM optimization (all applied, measured in Bitwig):**
+1. Removed `knob.png` + `wear_overlay.png` from `juce_add_binary_data` (CMake) — unreferenced by any
+   editor (grep-confirmed). Files left on disk, just not embedded.
+2. **Faceplate downscaled @2x→@1x**: `Resources/prime_faceplate.png` is now **1405×900** (was
+   2862×1801). Cropped to the 2810-wide opaque region + bicubic to 1405×900 so `paint()` still draws
+   1:1 (no code change). **Original @2x preserved in `Assets/Export/faceplate.png` + git history.**
+3. `~Prime76Editor()`: clear `faceplate`/knob/indicator `Image`s + `ImageCache::releaseUnusedImages()`.
+- **Results:** VST3 binary **35.2 → 8.8 MB**; Bitwig 1-instance host **210 → 193 MB** working set
+  (−17 MB, = faceplate 20.6→4.8 MB decoded). **Per-instance delta ~4 MB** — JUCE `ImageCache` shares
+  the decoded faceplate across all instances in a host, so asset RAM is paid **once per host**.
+
+**Install gotcha:** the installed VST3 in `Program Files\Common Files\VST3` gets **locked by Bitwig**
+(robocopy silently skips the DLL). Use the **rename-aside trick**: `C:\Users\ninov\install_vst.ps1`
+(run elevated via `Start-Process -Verb RunAs`) renames the live DLL to a timestamped `*.old`, copies
+the new one in, best-effort deletes unlocked `*.old`. Verify by hash. After install, **rescan/reload
+in the DAW** — the old DLL stays mapped until the plugin is reloaded.
+
+**`optimization/RAM_OPTIMIZATION.md` assessment (for the user — no code changed by the assessment):**
+doc is sound + correctly identifies the dead assets, but: (1) its "decoded RGBA" RAM figures for the
+**dead** assets are overstated — never loaded ⇒ never decoded, so they cost **binary size**, not RAM;
+(2) the real runtime win is the faceplate @1x (done); (3) its note "drop `AuroraFilterEditor.cpp` from
+the build" is **unsafe** — Prime reuses `ResponseDisplay`/`LfoScope`/`EnvScope`/`PresetManager` from
+that file.
 
 ---
 

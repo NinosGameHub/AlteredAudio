@@ -180,13 +180,6 @@ class PeakReadout : public juce::Component
 public:
     const AmberGlyphs* glyphs = nullptr;
     FilterAnalysisSource* analysis = nullptr;
-    void tick()
-    {
-        if (analysis == nullptr) return;
-        upd(heldL, silL, analysis->peakL.exchange(0.0f));
-        upd(heldR, silR, analysis->peakR.exchange(0.0f));
-        repaint();
-    }
     void paint(juce::Graphics& g) override
     {
         if (glyphs == nullptr || ! glyphs->ready()) return;
@@ -204,6 +197,37 @@ private:
         else if (++sil > 45) held = -99.0f;   // ~1.5s of silence -> clear the hold
     }
     static juce::String fmt(float db) { return db <= -99.0f ? juce::String("-") : juce::String(db, 1); }
+public:
+    // single-read feed: the editor exchanges peakL/R once and pushes here
+    void setLevels(float l, float r) { upd(heldL, silL, l); upd(heldR, silR, r); repaint(); }
+};
+
+// ============================================================
+//  VerticalMeter — live output level over the faceplate's baked LED
+//  column. Same recipe as Gain 76 (decaying display level + dB->y
+//  map); here it DIMS the segments above the signal, since the plate
+//  art is rendered fully lit.
+// ============================================================
+class VerticalMeter : public juce::Component
+{
+public:
+    VerticalMeter() { setInterceptsMouseClicks(false, false); }
+    void setLevel(float lin) { disp = juce::jmax(lin, disp * 0.84f); repaint(); }   // fast attack, ~slow decay
+    void paint(juce::Graphics& g) override
+    {
+        const float H = (float) getHeight(), W = (float) getWidth();
+        const float db = juce::Decibels::gainToDecibels(juce::jmax(disp, 1.0e-6f), kLo);
+        const float f  = juce::jlimit(0.0f, 1.0f, (db - kLo) / (kHi - kLo));
+        const float yLevel = H * (1.0f - f);            // lit below, dim above
+        if (yLevel > 0.5f)
+        {
+            g.setColour(juce::Colour(0xFF15100A).withAlpha(0.88f));   // extinguish unlit segments
+            g.fillRect(0.0f, 0.0f, W, yLevel);
+        }
+    }
+private:
+    static constexpr float kLo = -42.0f, kHi = 3.0f;    // meter dB span
+    float disp = 0.0f;
 };
 
 // ============================================================
@@ -269,8 +293,69 @@ public:
     FilterAnalysisSource* analysis = nullptr;
     juce::AudioProcessorValueTreeState* apvts = nullptr;
     juce::AudioProcessor* proc = nullptr;
+    juce::Rectangle<float> osHit;             // OVERSAMP field hit area (set in paint)
     void tick() { repaint(); }
     void paint(juce::Graphics& g) override;   // drawn with the rendered glyph font
+    void mouseDown(const juce::MouseEvent&) override;   // click OVERSAMP to cycle 1x/4x/8x
+};
+
+// ============================================================
+//  PresetBrowser — centred black panel listing presets in the glyph
+//  font; click a row to load, click outside / Esc to close.
+// ============================================================
+class PresetBrowser : public juce::Component
+{
+public:
+    const AmberGlyphs* glyphs = nullptr;
+    juce::StringArray names;
+    std::function<void(int)> onPick;
+    PresetBrowser() { setWantsKeyboardFocus(true); setVisible(false); }
+    void open(const juce::StringArray& n)
+    { names = n; setVisible(true); toFront(true); grabKeyboardFocus(); hover = -1; repaint(); }
+    bool keyPressed(const juce::KeyPress& k) override
+    { if (k.getKeyCode() == juce::KeyPress::escapeKey) setVisible(false); return true; }
+    void mouseMove(const juce::MouseEvent& e) override { hover = rowAt(e.position); repaint(); }
+    void mouseDown(const juce::MouseEvent& e) override
+    {
+        if (! panel().contains(e.position)) { setVisible(false); return; }
+        const int r = rowAt(e.position);
+        if (r >= 0) { if (onPick) onPick(r); setVisible(false); }
+    }
+    void paint(juce::Graphics& g) override
+    {
+        g.fillAll(juce::Colours::black.withAlpha(0.55f));        // scrim
+        const auto p = panel();
+        g.setColour(juce::Colour(0xFF000000)); g.fillRoundedRectangle(p, 6.0f);   // black bg
+        g.setColour(juce::Colour(0xFFD99A33).withAlpha(0.6f)); g.drawRoundedRectangle(p, 6.0f, 1.2f);
+        if (glyphs == nullptr || ! glyphs->ready()) return;
+        g.setOpacity(0.55f);
+        glyphs->drawString(g, { p.getX(), p.getY() + 6.0f, p.getWidth(), 13.0f }, "PRESETS", 0.45f);
+        g.setOpacity(1.0f);
+        for (int i = 0; i < names.size(); ++i)
+        {
+            juce::Rectangle<float> rr(p.getX() + 8.0f, p.getY() + 32.0f + (float) i * kRowH,
+                                      p.getWidth() - 16.0f, kRowH);
+            if (i == hover) { g.setColour(juce::Colour(0xFFD99A33).withAlpha(0.18f));
+                              g.fillRoundedRectangle(rr, 3.0f); }
+            glyphs->drawString(g, rr, names[i], 0.45f);
+        }
+    }
+private:
+    static constexpr float kRowH = 26.0f;
+    int hover = -1;
+    juce::Rectangle<float> panel() const
+    {
+        const float pw = 320.0f;
+        const float ph = 40.0f + kRowH * (float) juce::jmax(1, names.size());
+        return { (getWidth() - pw) * 0.5f, (getHeight() - ph) * 0.5f, pw, ph };
+    }
+    int rowAt(juce::Point<float> pt) const
+    {
+        const auto p = panel();
+        if (! p.contains(pt)) return -1;
+        const int r = (int) ((pt.y - (p.getY() + 32.0f)) / kRowH);
+        return (r >= 0 && r < names.size()) ? r : -1;
+    }
 };
 
 // ============================================================
@@ -551,14 +636,16 @@ private:
     std::array<LabelText, 11>    labels;        // 6 filter-type + 3 slope + 2 mode
     std::array<LabelText, 6>     modLabels;     // LFO A/B/EF source + FREQ/RESO/DRIVE dest (text only)
     PeakReadout                  peakReadout;   // dB peak numbers above the meters
+    VerticalMeter                meterL, meterR; // live L/R output level over the LED columns
     FooterStrip                  footer;        // bottom info line
     WaveSelect                   waveSelect;    // LFO wave symbols (sine/tri/sqr/rand)
     LayoutEditor                 layoutEditor;  // in-app nudge/edit overlay
     juce::File                   layoutFile;
     // ---- header line (preset / A-B / power / oversampling / mix) ----
     juce::TextButton hPrev { "<" }, hNext { ">" }, hSave { "SAVE" },
-                     hA { "A" }, hB { "B" }, hPwr { "PWR" }, hOS { "1x" };
-    juce::Label hName, hMix;
+                     hA { "A" }, hB { "B" }, hPwr { "PWR" };
+    juce::TextButton hName;          // preset name — click to open browser
+    PresetBrowser    presetBrowser;
     juce::StringArray presets; int presetIdx = 0;
     juce::ValueTree abSlot[2]; int abActive = 0;
     juce::ValueTree initState;

@@ -39,13 +39,12 @@ juce_generate_juce_header(Filter76)
 
 file(GLOB PRIME_GLYPHS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/glyphs/*.png")
 juce_add_binary_data(Filter76BinaryData SOURCES
-    Resources/knob.png
-    Resources/wear_overlay.png
     Resources/prime_faceplate.png
     Resources/prime_knob.png
     Resources/prime_indicator.png
     ${PRIME_GLYPHS}
 )
+# NB: knob.png + wear_overlay.png removed — unreferenced by any editor (~22.6 MB binary).
 
 target_sources(Filter76 PRIVATE
     Source/FilterPlugin.cpp

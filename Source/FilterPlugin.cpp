@@ -69,7 +69,7 @@ public:
         m->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::fltModDest,  1}, "Mod Dest",   juce::StringArray{"Frequency","Resonance","Drive"}, 0));
         m->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::fltModAmount,1}, "Mod Amount", NR(-1.0f, 1.0f), 0.0f));
         m->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::fltLfoAWave, 1}, "LFO A Wave",  waves, 0));
-        m->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::fltLfoARate, 1}, "LFO A Rate",  NR(0.01f, 20.0f, 0.0f, 0.4f), 1.0f));
+        m->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::fltLfoARate, 1}, "LFO A Rate",  NR(0.01f, 20.0f, 0.0f, 0.4f), 0.2f));
         m->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::fltLfoADepth,1}, "LFO A Depth", NR(0.0f, 1.0f), 1.0f));
         m->addChild(std::make_unique<juce::AudioParameterFloat> (PID{ParamID::fltLfoAPhase,1}, "LFO A Phase", NR(0.0f, 360.0f), 0.0f));
         m->addChild(std::make_unique<juce::AudioParameterChoice>(PID{ParamID::fltLfoBWave, 1}, "LFO B Wave",  waves, 1));
